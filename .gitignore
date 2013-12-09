@@ -7,4 +7,5 @@ UserViewer.vcxproj
 UserViewer.vcxproj.user
 UserViewer.vcxproj.filters
 glut64.lib
+UserViewer.suo
 

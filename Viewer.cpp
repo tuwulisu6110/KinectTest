@@ -4,9 +4,6 @@
 *   Copyright (C) 2012 PrimeSense Ltd.                                         *
 *                                                                              *
 *******************************************************************************/
-
-// comment for git log
-
 #include <fstream> 
 #include <math.h>
 #if (defined _WIN32)
@@ -1296,7 +1293,7 @@ void SampleViewer::humanDisplay()
 			glEnd();
 			//printf("avg depth=%f\n",sum/num);
 			glPopMatrix();
-
+			/*
 			// begin draw head point
 			if(i==0)
 				glColor3f(1,0,0);
@@ -1306,7 +1303,7 @@ void SampleViewer::humanDisplay()
 			glBegin(GL_POINTS); 
 				glVertex3f(torso[i].x,torso[i].y,torso[i].z);
 			glEnd();
-			glPointSize(1);
+			glPointSize(1);*/
 			if(frameCounter%SHOW_DATA_PER_FRAME==0)
 			{
 				printf("kinect %d : ",i);
