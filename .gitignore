@@ -2,3 +2,9 @@ UserViewer.sdf
 Bin/
 GL/
 ipch/
+UserViewer.sln
+UserViewer.vcxproj
+UserViewer.vcxproj.user
+UserViewer.vcxproj.filters
+glut64.lib
+
