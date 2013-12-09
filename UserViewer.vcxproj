@@ -74,6 +74,8 @@
     <IntDir>$(ProjectDir)Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
     <GenerateManifest>false</GenerateManifest>
     <ExecutablePath>GL\;$(ExecutablePath)</ExecutablePath>
+    <IncludePath>C:\Program Files\PrimeSense\NiTE2\Samples\gitTest\KinectTest\Bin;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\PrimeSense\NiTE2\Samples\gitTest\KinectTest\Bin;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -111,13 +113,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(OPENNI2_INCLUDE64);..\GL;.;$(NITE2_INCLUDE64)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(OPENNI2_INCLUDE64);.\GL\;.;$(NITE2_INCLUDE64)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(NITE2_LIB64);$(OPENNI2_LIB64);..\GL;.</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(NITE2_LIB64);$(OPENNI2_LIB64);.;C:\Program Files\PrimeSense\NiTE2\Samples\gitTest\KinectTest\GL</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glut64.lib;NiTE2.lib;OpenNI2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
