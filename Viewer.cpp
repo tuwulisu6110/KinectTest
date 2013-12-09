@@ -4,6 +4,9 @@
 *   Copyright (C) 2012 PrimeSense Ltd.                                         *
 *                                                                              *
 *******************************************************************************/
+
+// comment for git log
+
 #include <fstream> 
 #include <math.h>
 #if (defined _WIN32)
