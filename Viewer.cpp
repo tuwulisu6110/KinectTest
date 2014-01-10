@@ -598,7 +598,7 @@ void SampleViewer::getTheRealSpot()
 							}
 						}
 					float x = sumX/sumNum,y=sumY/sumNum,z=sumZ/sumNum,realx,realy;
-					m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,DEPTH_HEIGHT-y,z,&realx,&realy);
+					m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,z,&realx,&realy);
 					//glVertex3f(realx/60+xShifter[i],realy/60,pDepth[0]/60);
 
 					calibrationRef[i][j].x = realx/trueFactor;
@@ -818,7 +818,7 @@ void calculateNormalMap(pointf *pointCloud)
 				b.y = pointCloud[bot].y - pointCloud[index].y;
 				b.z = pointCloud[bot].z - pointCloud[index].z;
 				pointCloud[index].normal.copyFrom(cross(a,b));
-				//pointCloud[index].normal.normalize();
+				pointCloud[index].normal.normalize();
 			}
 		}
 }
@@ -884,7 +884,7 @@ void SampleViewer::humanDisplay()
 	//	0.0, -1.0,0.0); 
 	gluLookAt(0 ,0 ,0,  /* eye is at () */
 		0.0,0 , 1,      /* center is at (0,0,0) */
-		0.0, -1.0,0.0); 
+		0.0, 1.0,0.0); 
 
 
 	float factor[3] = {1, 1, 1};
@@ -1013,14 +1013,18 @@ void SampleViewer::humanDisplay()
 
 				for (int x = 0; x < DEPTH_WIDTH; ++x, ++pDepth, ++pLabels,++pImage)
 				{
+					int index = y*DEPTH_WIDTH+x;
+					if(i==BASE)
+						basePointCloud[index].type = -1;
+					pointCloud[i][index].type = -1;
 					if (*pDepth != 0)
 					{
-						int index = y*DEPTH_WIDTH+x;
+						
 						if (*pLabels != 0)
 						{
 							
 
-							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,depthFrame[i].getHeight()-y,pDepth[0],&realX,&realY);
+							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realX,&realY);
 							if(i==BASE)
 							{
 								basePointCloud[index].x = realX;
@@ -1098,7 +1102,7 @@ void SampleViewer::humanDisplay()
 					{
 						//printf("say yes\n");
 						pointCloud[BASE][index].copyFrom(basePointCloud[index]);
-						rotate(-1*rotateR[i].y,pointCloud[BASE][index],humanCenter[i]);
+						rotate(-1*rotateR[i].y,pointCloud[BASE][index],humanCenter[BASE]);
 					}
 					if(pointCloud[i][index].type==0)
 						rotate(rotateR[i].y,pointCloud[i][index],humanCenter[i]);
@@ -1119,12 +1123,13 @@ void SampleViewer::humanDisplay()
 					
 					if(pointCloud[i][index].type==0)
 					{
-						if(pointCloud[i][index].normal.z>=0)
+						if(pointCloud[i][index].normal.z<0)
 						{
-							begin.x+=pointCloud[i][index].x;
-							begin.y+=pointCloud[i][index].y;
-							begin.z+=pointCloud[i][index].z;
-							begin.count++;
+							float weight = -1 * pointCloud[i][index].normal.z;
+							begin.x+=weight*pointCloud[i][index].x;
+							begin.y+=weight*pointCloud[i][index].y;
+							begin.z+=weight*pointCloud[i][index].z;
+							begin.count+=weight;
 							countItBase[i]++;
 						}
 						else
@@ -1134,12 +1139,13 @@ void SampleViewer::humanDisplay()
 					}
 					if(pointCloud[BASE][index].type==0)
 					{
-						if(pointCloud[BASE][index].normal.z>=0)
+						if(pointCloud[BASE][index].normal.z<0)
 						{
-							end.x+=basePointCloud[index].x;
-							end.y+=basePointCloud[index].y;
-							end.z+=basePointCloud[index].z;
-							end.count++;
+							float weight = -1 * pointCloud[BASE][index].normal.z;
+							end.x+=weight*basePointCloud[index].x;
+							end.y+=weight*basePointCloud[index].y;
+							end.z+=weight*basePointCloud[index].z;
+							end.count+=weight;
 							countIt[i]++;
 						}
 						else
@@ -1196,8 +1202,8 @@ void SampleViewer::humanDisplay()
 			T.y = torso[BASE].y - torso[i].y;
 			T.z = torso[BASE].z - torso[i].z;
 			glTranslatef(T.x,T.y,T.z);*/
-			if(i!=BASE)
-				glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
+			if(i!=BASE);
+				//glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
 			/*rotate(rotateR[i].y,torso[i],torso[BASE]);
 			pointf T;
 			T.x = torso[BASE].x - torso[i].x;
@@ -1225,11 +1231,9 @@ void SampleViewer::humanDisplay()
 			}
 			else
 			{
-				glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
-				//glTranslatef(calibrationCenter[i].x-34,calibrationCenter[i].y-32,calibrationCenter[i].z);
-				glRotatef(rotateR[i].y+theta[i],0,1,0);
-				//glTranslatef(-1*(calibrationCenter[i].x-34),-1*(calibrationCenter[i].y-32),-1*calibrationCenter[i].z);
-				glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
+				//glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
+				//glRotatef(rotateR[i].y+theta[i],0,1,0);
+				//glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
 			}
 
 
@@ -1249,6 +1253,7 @@ void SampleViewer::humanDisplay()
 					{
 						if (*pLabels != 0)
 						{
+							int index = y*DEPTH_WIDTH+x;
 							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
 							//int nHistValue = m_pDepthHist[*pDepth];
 							double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
@@ -1258,8 +1263,17 @@ void SampleViewer::humanDisplay()
 							realX = (wariai * (x-centerX))+centerX;
 							realY = (wariai * (y-centerY))+centerY;
 							float realx,realy;
-							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,depthFrame[i].getHeight()-y,pDepth[0],&realx,&realy);
-							glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
+							//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
+							//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
+							if(i==BASE)
+							{
+								glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+							}
+							else
+							{
+								//if(pointCloud[i][index].normal.x>0)
+									glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
+							}
 							//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
 							/*if(denseMode)
 							{
@@ -1505,19 +1519,19 @@ void SampleViewer::Display()
 				glRotatef(90,1,0,0);
 			glRotatef(theta[i],0,1,0);
 			glTranslatef(-(xShifter[i]),0,-meanZ[i]);
-
+			const openni::DepthPixel* pDepth = pDepthRow;
+			const openni::RGB888Pixel* pImage = pImageRow;
 			glBegin(GL_POINTS);  
 			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
 			{
-				const openni::DepthPixel* pDepth = pDepthRow;
-				const openni::RGB888Pixel* pImage = pImageRow;
+
 				//openni::RGB888Pixel* pTex = pTexRow + depthFrame.getCropOriginX();
 
 				for (int x = 0; x < depthFrame[i].getWidth(); ++x, ++pDepth, ++pLabels,++pImage)
 				{
 					if (*pDepth != 0)
 					{
-						if (*pLabels != 0||g_drawBackground)
+						//if (*pLabels != 0)//||g_drawBackground)
 						{
 							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
 							//int nHistValue = m_pDepthHist[*pDepth];
@@ -1528,8 +1542,8 @@ void SampleViewer::Display()
 						}
 					}
 				}
-				pImageRow += rowSize;
-				pDepthRow += rowSize;
+				//pImageRow += rowSize;
+				//pDepthRow += rowSize;
 				//pTexRow += m_nTexMapX;
 			}
 			glEnd();
@@ -1764,6 +1778,9 @@ void SampleViewer::getRotateR(int base)
 
 void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 {
+	std::fstream file2;
+	std::fstream file;
+	std::fstream file3;
 	switch (key)
 	{
 	case 27:
@@ -1802,6 +1819,11 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			newChange = true;
 		}
 
+		break;
+	case 'S':
+		file3.open("translate.txt", std::fstream::out | std::fstream::trunc);
+		file3<<translateX[0]<<" "<<translateY[0]<<std::endl;
+		file3.close();
 		break;
 	case 'w':
 		if(!selectingMode&&humanDisplayMode)
@@ -1934,7 +1956,6 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			rotationMode = true;
 		break;
 	case 'l':
-		std::fstream file;
 		file.open("data.txt",std::fstream::in);
 		if(!file.is_open())
 		{
@@ -1950,6 +1971,18 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			printf("rotate %d : ",i);
 			rotateR[i].print();		
 		}
+		break;	
+	case 'L':
+		file2.open("data.txt",std::fstream::in);
+		if(!file2.is_open())
+		{
+			printf("ERROR in load data.txt\n");
+			break;
+		}
+
+		file2>>translateX[0]>>translateY[0];
+		printf("translate x : %d,translate y : %d\n",translateX[0],translateY[0]);
+		file2.close();
 		break;	
 	}
 

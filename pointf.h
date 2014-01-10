@@ -11,10 +11,11 @@ public:
 	double y;
 	double z;
 	int type;
-	int count;
+	float count;
 	pointf()
 	{
 		setToZero();
+		normal.setToZero();
 	}
 
 	void setToZero()
