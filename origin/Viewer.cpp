@@ -125,7 +125,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 		translateT[i].setToZero();
 	}
 	soraMode = false;
-	viewMode = true;
+	viewMode = false;
 	takePicture = false;
 	selectingMode = false;
 	newChange = false;
@@ -1125,7 +1125,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[i][index].normal.z<0)
 						{
-							float weight = 1;//-1 * pointCloud[i][index].normal.z;
+							float weight = -1 * pointCloud[i][index].normal.z;
 							begin.x+=weight*pointCloud[i][index].x;
 							begin.y+=weight*pointCloud[i][index].y;
 							begin.z+=weight*pointCloud[i][index].z;
@@ -1141,7 +1141,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[BASE][index].normal.z<0)
 						{
-							float weight = 1;//-1 * pointCloud[BASE][index].normal.z;
+							float weight = -1 * pointCloud[BASE][index].normal.z;
 							end.x+=weight*basePointCloud[index].x;
 							end.y+=weight*basePointCloud[index].y;
 							end.z+=weight*basePointCloud[index].z;

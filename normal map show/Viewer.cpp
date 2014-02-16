@@ -125,7 +125,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 		translateT[i].setToZero();
 	}
 	soraMode = false;
-	viewMode = true;
+	viewMode = false;
 	takePicture = false;
 	selectingMode = false;
 	newChange = false;
@@ -1125,7 +1125,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[i][index].normal.z<0)
 						{
-							float weight = 1;//-1 * pointCloud[i][index].normal.z;
+							float weight = -1 * pointCloud[i][index].normal.z;
 							begin.x+=weight*pointCloud[i][index].x;
 							begin.y+=weight*pointCloud[i][index].y;
 							begin.z+=weight*pointCloud[i][index].z;
@@ -1141,7 +1141,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[BASE][index].normal.z<0)
 						{
-							float weight = 1;//-1 * pointCloud[BASE][index].normal.z;
+							float weight = -1 * pointCloud[BASE][index].normal.z;
 							end.x+=weight*basePointCloud[index].x;
 							end.y+=weight*basePointCloud[index].y;
 							end.z+=weight*basePointCloud[index].z;
@@ -1240,7 +1240,8 @@ void SampleViewer::humanDisplay()
 
 			float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
 			float centerX=320,centerY=240;
-			glBegin(GL_POINTS);  
+			calculateNormalMap(basePointCloud);
+			 
 			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
 			{
 				const openni::DepthPixel* pDepth = pDepthRow;
@@ -1254,6 +1255,7 @@ void SampleViewer::humanDisplay()
 						if (*pLabels != 0)
 						{
 							int index = y*DEPTH_WIDTH+x;
+							glColor3f(basePointCloud[index].normal.x*255.0,basePointCloud[index].normal.y*255.0,basePointCloud[index].normal.z*255.0);
 							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
 							//int nHistValue = m_pDepthHist[*pDepth];
 							double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
@@ -1265,15 +1267,19 @@ void SampleViewer::humanDisplay()
 							float realx,realy;
 							//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
 							//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
-							if(i==BASE)
+							glBegin(GL_POINTS); 
+							glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+							glEnd();
+							//glColor3f(255,255,255);
+							/*if(index%50==0)
 							{
+								glBegin(GL_LINES); 
+								float be = 25;
 								glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
-							}
-							else
-							{
-								//if(pointCloud[i][index].normal.x>0)
-									glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
-							}
+								glVertex3f((basePointCloud[index].x+basePointCloud[index].normal.x*be)/trueFactor,(basePointCloud[index].y+basePointCloud[index].normal.y*be)/trueFactor,(basePointCloud[index].z+basePointCloud[index].normal.z*be)/trueFactor);
+								glEnd();
+							}*/
+
 							//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
 							/*if(denseMode)
 							{
@@ -1304,7 +1310,7 @@ void SampleViewer::humanDisplay()
 				pDepthRow += rowSize;
 				//pTexRow += m_nTexMapX;
 			}
-			glEnd();
+			
 			//printf("avg depth=%f\n",sum/num);
 			glPopMatrix();
 			/*
