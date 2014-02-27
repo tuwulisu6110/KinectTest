@@ -794,589 +794,8 @@ void SampleViewer::snapDisplay()
 	glutSwapBuffers();
 }
 
-vector cross(pointf a,pointf b)
-{
-	vector axb;
-	axb.x=a.y*b.z-a.z*b.y;
-	axb.y=a.z*b.x-a.x*b.z;
-	axb.z=a.x*b.y-a.y*b.x;
-	return axb;
-}
-void calculateNormalMap(pointf *pointCloud)
-{
-	for (int y = 0; y < DEPTH_HEIGHT-1; ++y)
-		for (int x = 0; x < DEPTH_WIDTH-1; ++x)
-		{
-			int index = y*DEPTH_WIDTH+x,right = y*DEPTH_WIDTH+x+1 , bot = (y+1)*DEPTH_WIDTH+x;
-			if(pointCloud[index].type==0)
-			{
-				pointf a,b;
-				a.x = pointCloud[right].x - pointCloud[index].x;
-				a.y = pointCloud[right].y - pointCloud[index].y;
-				a.z = pointCloud[right].z - pointCloud[index].z;
-				b.x = pointCloud[bot].x - pointCloud[index].x;
-				b.y = pointCloud[bot].y - pointCloud[index].y;
-				b.z = pointCloud[bot].z - pointCloud[index].z;
-				pointCloud[index].normal.copyFrom(cross(a,b));
-				pointCloud[index].normal.normalize();
-			}
-		}
-}
-void SampleViewer::humanDisplay()
-{
-	//system("pause");
-	frameCounter++;
-	nite::UserTrackerFrameRef userTrackerFrame[MAX_DEVICE];
-	openni::VideoFrameRef depthFrame[MAX_DEVICE],colorFrame[MAX_DEVICE];
-	for(int i=0;i<deviceNum;i++)
-	{
-		
-		nite::Status rc = m_pUserTracker[i]->readFrame(&userTrackerFrame[i]);
-		//printf("read %d\n",i);
-		if (rc != nite::STATUS_OK)
-		{
-			printf("GetNextData failed\n");
-			return;
-		}
-		m_colorStream[i].readFrame(&colorFrame[i]);
-		depthFrame[i] = userTrackerFrame[i].getDepthFrame();
-
-		/*if (m_pTexMap == NULL)
-		{
-			// Texture map init
-			m_nTexMapX = MIN_CHUNKS_SIZE(depthFrame[i].getVideoMode().getResolutionX(), TEXTURE_SIZE);
-			m_nTexMapY = MIN_CHUNKS_SIZE(depthFrame[i].getVideoMode().getResolutionY(), TEXTURE_SIZE);
-			m_pTexMap = new openni::RGB888Pixel[m_nTexMapX * m_nTexMapY];
-		}*/
-	}
 
 
-	
-
-
-	//const nite::UserMap& userLabels = userTrackerFrame.getUserMap();
-
-	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	/*glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glLoadIdentity();
-	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);*/
-
-	/*if (depthFrame.isValid() && g_drawDepth)
-	{
-		calculateHistogram(m_pDepthHist, MAX_DEPTH, depthFrame);
-	}*/
-
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	if(viewMode)
-		gluPerspective( /* field of view in degree */ View_Distance,
-		/* aspect ratio */ 1.0,
-		/* Z near */ 1, /* Z far */ 10000);
-	else
-		glOrtho(-80,80,-60,60,0,10000);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	//gluLookAt(0 ,0 ,0,  /* eye is at () */
-	//	0.0,0.0 , View_Distance,      /* center is at (0,0,0) */
-	//	0.0, -1.0,0.0); 
-	gluLookAt(0 ,0 ,0,  /* eye is at () */
-		0.0,0 , 1,      /* center is at (0,0,0) */
-		0.0, 1.0,0.0); 
-
-
-	float factor[3] = {1, 1, 1};
-	float xShifter[3] = {0,0,0};
-	// check if we need to draw depth frame to texture
-	double avgZ=0;
-	int outlier[MAX_DEVICE] = {0},countIt[MAX_DEVICE] = {0} , outlierBase[MAX_DEVICE] = {0} , countItBase[MAX_DEVICE] = {0};
-	for(int i=0;i<deviceNum;i++)
-	{
-		int sumZ = 0,sumX = 0,sumY = 0;
-		int num = 0;
-		
-		if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
-		{
-			const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
-			const nite::UserId* pLabels = userLabels.getPixels();
-			const nite::UserId* isHuman = userLabels.getPixels();
-			const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
-
-			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
-			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
-			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
-
-			if(trackingID[i] >= users.getSize())
-				trackingID[i] = 0;
-
-			/*if(trackingID[i]<users.getSize())
-			{
-				if(users[trackingID[i]].isNew())
-				{
-					m_pUserTracker[i]->startSkeletonTracking( users[trackingID[i]].getId() );
-				}
-				pointf head;
-				if(users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPositionConfidence()<0.5)
-					skeletonCaptured = false;
-				else
-					skeletonCaptured = true;
-				head.x  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().x;
-				head.y  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().y;
-				head.z  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().z;
-				float realx,realy;
-				m_pUserTracker[trackingID[i]]->convertJointCoordinatesToDepth(head.x,head.y,head.z,&realx,&realy);
-
-				pointf avg;
-				avg.setToZero();
-				int count = 0;
-				for(int y=realy-10;y<realy+10;y++)
-					for(int x=realx-10;x<realx+10;x++)
-						if(pDepthRow[y*DEPTH_WIDTH+x]!=0&&isHuman[y*DEPTH_WIDTH+x]!=0)
-						{
-							count++;
-							avg.x+=x;
-							avg.y+=y;
-							avg.z+=pDepthRow[y*DEPTH_WIDTH+x];
-						}
-				if(count!=0)
-				{
-					avg.x/=count;
-					avg.y/=count;
-					avg.z/=count;
-				}
-				torso[i].copyFrom(avg);
-				int x = realx , y = realy;
-				torso[i].x=realx;
-				torso[i].y=realy;
-				torso[i].z=pDepthRow[y*DEPTH_WIDTH+x];
-			}
-			else
-				skeletonCaptured = false;*/
-			skeletonCaptured = false;
-			for(int j=0;j<users.getSize();j++)
-			{
-				if(users[j].isNew())
-				{
-					m_pUserTracker[i]->startSkeletonTracking( users[trackingID[i]].getId() );
-				}
-				if(j==trackingID[i])
-				{
-					pointf head;
-					if(users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPositionConfidence()<0.5)
-						skeletonCaptured = false;
-					else
-						skeletonCaptured = true;
-					head.x  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().x/trueFactor;
-					head.y  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().y/trueFactor;
-					head.z  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().z/trueFactor;
-					torso[i].copyFrom(head);
-					//float realx,realy;
-					//m_pUserTracker[trackingID[i]]->convertJointCoordinatesToDepth(head.x,head.y,head.z,&realx,&realy);
-
-					/*pointf avg;
-					avg.setToZero();
-					int count = 0;
-					for(int y=realy-10;y<realy+10;y++)
-						for(int x=realx-10;x<realx+10;x++)
-							if(pDepthRow[y*DEPTH_WIDTH+x]!=0&&isHuman[y*DEPTH_WIDTH+x]!=0)
-							{
-								count++;
-								avg.x+=x;
-								avg.y+=y;
-								avg.z+=pDepthRow[y*DEPTH_WIDTH+x];
-							}
-					if(count!=0)
-					{
-						avg.x/=count;
-						avg.y/=count;
-						avg.z/=count;
-					}
-					torso[i].copyFrom(avg);*/
-					
-					/*int xx = realx , yy = realy;
-					torso[i].x=realx;
-					torso[i].y=realy;
-					torso[i].z=head.z;*/
-				}
-				/*if(trackingID[i]!=j)
-				{
-					m_pUserTracker[i]->stopSkeletonTracking(users[j].getId());
-				}*/
-			}
-			float realX,realY;
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				const openni::DepthPixel* pDepth = pDepthRow;
-				const openni::RGB888Pixel* pImage = pImageRow;
-
-				for (int x = 0; x < DEPTH_WIDTH; ++x, ++pDepth, ++pLabels,++pImage)
-				{
-					int index = y*DEPTH_WIDTH+x;
-					if(i==BASE)
-						basePointCloud[index].type = -1;
-					pointCloud[i][index].type = -1;
-					if (*pDepth != 0)
-					{
-						
-						if (*pLabels != 0)
-						{
-							
-
-							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realX,&realY);
-							if(i==BASE)
-							{
-								basePointCloud[index].x = realX;
-								basePointCloud[index].y = realY;
-								basePointCloud[index].z = pDepth[0];
-								basePointCloud[index].type = 0;//human point
-							}
-							
-							{
-								pointCloud[i][index].x = realX;
-								pointCloud[i][index].y = realY;
-								pointCloud[i][index].z = pDepth[0];
-								pointCloud[i][index].type = 0;//human point
-							}
-							sumX+=realX;
-							sumY+=realY;
-							sumZ+=pDepth[0];
-							num++;
-
-						}
-						else
-						{
-							if(i==BASE)
-							{
-								basePointCloud[index].x = 0;
-								basePointCloud[index].y = 0;
-								basePointCloud[index].z = 0;
-								basePointCloud[index].type = -1;//non human point
-							}
-							
-							{
-								pointCloud[i][index].x = 0;
-								pointCloud[i][index].y = 0;
-								pointCloud[i][index].z = 0;
-								pointCloud[i][index].type = -1;//non human point
-							}
-						}
-					}
-				}
-				pImageRow += rowSize;
-				pDepthRow += rowSize;
-				//pTexRow += m_nTexMapX;
-			}
-			
-		}
-		
-		if(num!=0)
-		{
-			//meanZ[i] = ((float)sumZ)/num;
-			meanX[i] = ((float)sumX)/num;
-			meanY[i] = ((float)sumY)/num;
-			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
-			meanZ[i] = pDepthRow[depthFrame[i].getWidth()*((int)meanY[i])+(int)meanX[i]]/zFactor;
-			avgZ=((float)sumZ)/num;
-			//float realx,realy;
-			//m_pUserTracker[i]->convertDepthCoordinatesToJoint((int)meanX[i],depthFrame[i].getHeight()-((int)meanY[i]),meanZ[i],&realx,&realy);
-			humanCenter[i].x = meanX[i];
-			humanCenter[i].y = meanY[i];
-			humanCenter[i].z = avgZ;
-		}
-		else
-		{
-			meanZ[i]=0;
-			avgZ=0;
-		}
-		if(i!=BASE)
-		{
-			//int index;
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				for (int x = 0; x < DEPTH_WIDTH; ++x)
-				{
-					int index = y*DEPTH_WIDTH+x;
-					if(basePointCloud[index].type==0)
-					{
-						//printf("say yes\n");
-						pointCloud[BASE][index].copyFrom(basePointCloud[index]);
-						rotate(-1*rotateR[i].y,pointCloud[BASE][index],humanCenter[BASE]);
-					}
-					if(pointCloud[i][index].type==0)
-						rotate(rotateR[i].y,pointCloud[i][index],humanCenter[i]);
-					
-				}
-			}
-
-			calculateNormalMap(pointCloud[i]);
-			calculateNormalMap(pointCloud[BASE]);
-			pointf begin,end;
-			begin.setToZero();
-			end.setToZero();
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				for (int x = 0; x < DEPTH_WIDTH; ++x)
-				{
-					int index = y*DEPTH_WIDTH+x;
-					
-					if(pointCloud[i][index].type==0)
-					{
-						if(pointCloud[i][index].normal.z<0)
-						{
-							float weight = 1;//-1 * pointCloud[i][index].normal.z;
-							begin.x+=weight*pointCloud[i][index].x;
-							begin.y+=weight*pointCloud[i][index].y;
-							begin.z+=weight*pointCloud[i][index].z;
-							begin.count+=weight;
-							countItBase[i]++;
-						}
-						else
-						{
-							outlierBase[i]++;
-						}
-					}
-					if(pointCloud[BASE][index].type==0)
-					{
-						if(pointCloud[BASE][index].normal.z<0)
-						{
-							float weight = 1;//-1 * pointCloud[BASE][index].normal.z;
-							end.x+=weight*basePointCloud[index].x;
-							end.y+=weight*basePointCloud[index].y;
-							end.z+=weight*basePointCloud[index].z;
-							end.count+=weight;
-							countIt[i]++;
-						}
-						else
-						{
-							outlier[i]++;
-						}
-					}
-				}
-			}
-			begin.DoAvg();
-			end.DoAvg();
-			realTranslate[i].doVector(begin,end);
-		}
-	}
-	pointf translateTH[MAX_DEVICE];
-	for(int i=0;i<deviceNum;i++)
-	{
-		translateTH[i].setToZero();
-		if(i!=BASE)
-		{
-			translateTH[i].x = meanX[BASE] - meanX[i];
-			translateTH[i].y = meanY[BASE] - meanY[i];
-			translateTH[i].z = meanZ[BASE] - meanZ[i];
-		}
-	}
-	for(int i=0;i<deviceNum;i++)
-	{
-		if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
-		{
-			//printf("Drawing : %d\n",i);
-			const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
-			const nite::UserId* pLabels = userLabels.getPixels();
-			
-			const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
-
-
-
-			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
-			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
-			//openni::RGB888Pixel* pTexRow = m_pTexMap + depthFrame.getCropOriginY() * m_nTexMapX;
-			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
-
-			glPushMatrix();
-			glTranslatef(translateX[i],translateY[i],0);
-			/*
-			glTranslatef(xShifter[i],0,meanZ[i]);
-			if(soraMode)
-				glRotatef(90,1,0,0);
-			glRotatef(theta[i],0,1,0);
-			glTranslatef(-(xShifter[i]),0,-meanZ[i]);*/
-			//glTranslatef(translateT[i].x,translateT[i].y,translateT[i].z);
-			/*pointf T;
-			T.x = torso[BASE].x - torso[i].x;
-			T.y = torso[BASE].y - torso[i].y;
-			T.z = torso[BASE].z - torso[i].z;
-			glTranslatef(T.x,T.y,T.z);*/
-			if(i!=BASE);
-				//glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
-			/*rotate(rotateR[i].y,torso[i],torso[BASE]);
-			pointf T;
-			T.x = torso[BASE].x - torso[i].x;
-			T.y = torso[BASE].y - torso[i].y;
-			T.z = torso[BASE].z - torso[i].z;*/
-			//glTranslatef(T.x,T.y,T.z);
-			//glTranslatef(translateTH[i].x/10,translateTH[i].y/10,translateTH[i].z);
-			pointf t;
-			skeletonCaptured = false;
-			if(skeletonCaptured)
-			{
-				if(rotationMode)
-				{
-					theta[i] += 0.3;
-					printf("%f\n",theta[i]);
-				}
-				t.x = torso[i].x;
-				t.y = torso[i].y;
-				t.z = torso[i].z;
-				glTranslatef(t.x,t.y,t.z);
-				//glTranslatef(calibrationCenter[i].x-34,calibrationCenter[i].y-32,calibrationCenter[i].z);
-				glRotatef(rotateR[i].y+theta[i],0,1,0);
-				//glTranslatef(-1*(calibrationCenter[i].x-34),-1*(calibrationCenter[i].y-32),-1*calibrationCenter[i].z);
-				glTranslatef(-t.x,-t.y,-t.z);
-			}
-			else
-			{
-				//glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
-				//glRotatef(rotateR[i].y+theta[i],0,1,0);
-				//glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
-			}
-
-
-
-			float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
-			float centerX=320,centerY=240;
-			glBegin(GL_POINTS);  
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				const openni::DepthPixel* pDepth = pDepthRow;
-				const openni::RGB888Pixel* pImage = pImageRow;
-				//openni::RGB888Pixel* pTex = pTexRow + depthFrame.getCropOriginX();
-
-				for (int x = 0; x < depthFrame[i].getWidth(); ++x, ++pDepth, ++pLabels,++pImage)
-				{
-					if (*pDepth != 0)
-					{
-						if (*pLabels != 0)
-						{
-							int index = y*DEPTH_WIDTH+x;
-							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
-							//int nHistValue = m_pDepthHist[*pDepth];
-							double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
-							if(scaleMode==false)
-								wariai = 1;
-							double realX,realY;
-							realX = (wariai * (x-centerX))+centerX;
-							realY = (wariai * (y-centerY))+centerY;
-							float realx,realy;
-							//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
-							//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
-							if(i==BASE)
-							{
-								glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
-							}
-							else
-							{
-								//if(pointCloud[i][index].normal.x>0)
-									glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
-							}
-							//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
-							/*if(denseMode)
-							{
-								glVertex3f(realX/10.0-24+xShifter[i]-10+basicDx,realY/10.0-32,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10-basicDx,realY/10.0-32,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32+basicDy,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32-basicDy,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor+basicDz);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor-basicDz);
-							}*/
-							/*else
-							{
-								glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10);
-								if(denseMode)
-								{
-									glVertex3f(x/10.0-24+xShifter[i]-10+basicDx,y/10.0-32,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10-basicDx,y/10.0-32,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32+basicDy,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32-basicDy,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10+basicDz);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10-basicDz);
-								}
-							}*/
-						}
-					}
-				}
-				pImageRow += rowSize;
-				pDepthRow += rowSize;
-				//pTexRow += m_nTexMapX;
-			}
-			glEnd();
-			//printf("avg depth=%f\n",sum/num);
-			glPopMatrix();
-			/*
-			// begin draw head point
-			if(i==0)
-				glColor3f(1,0,0);
-			else if(i==1)
-				glColor3f(0,1,0);
-			glPointSize(8);
-			glBegin(GL_POINTS); 
-				glVertex3f(torso[i].x,torso[i].y,torso[i].z);
-			glEnd();
-			glPointSize(1);*/
-			if(frameCounter%SHOW_DATA_PER_FRAME==0)
-			{
-				printf("kinect %d : ",i);
-				printf("realtranslate : ");
-				realTranslate[i].print();
-				printf("outlier : %d\n",outlier[i]);
-				printf("count it :%d\n",countIt[i]);
-				printf("outlier base : %d\n",outlierBase[i]);
-				printf("count it base : %d\n",countItBase[i]);
-				frameCounter = 0;
-			}
-
-
-			//draw boxing
-			/*pointf realCenter,halfSide;
-			halfSide.x = 13;
-			halfSide.y = 20;
-			halfSide.z = 15;
-			realCenter.x = calibrationCenter[i].x-34;
-			realCenter.y = calibrationCenter[i].y-32;
-			realCenter.z = calibrationCenter[i].z;
-			if(i==0)
-				glColor3f(0,0,1);
-			else
-				glColor3f(0,1,0);
-			glBegin(GL_LINES);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
-				
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
-				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
-			glEnd();*/
-
-		}
-	}
-
-
-
-	
-	// Swap the OpenGL display buffers
-	glutSwapBuffers();
-	//system("pause");
-}
 void SampleViewer::Display()
 {
 	//system("pause");
@@ -1693,9 +1112,9 @@ void SampleViewer::getTranslateT(int base)
 {
 	for(int i=0;i<deviceNum;i++)
 	{
-		translateT[i].x = calibrationCenter[base].x-calibrationCenter[i].x;
-		translateT[i].y = calibrationCenter[base].y-calibrationCenter[i].y;
-		translateT[i].z = calibrationCenter[base].z-calibrationCenter[i].z;
+		translateT[i].x = (calibrationCenter[base].x-calibrationCenter[i].x)*trueFactor;
+		translateT[i].y = (calibrationCenter[base].y-calibrationCenter[i].y)*trueFactor;
+		translateT[i].z = (calibrationCenter[base].z-calibrationCenter[i].z)*trueFactor;
 	}
 
 }
@@ -1774,6 +1193,35 @@ void SampleViewer::getRotateR(int base)
 		}
 
 	}
+}
+openni::Status SampleViewer::InitOpenGL(int argc, char **argv)
+{
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitWindowPosition(650,230);
+	glutInitWindowSize(GL_WIN_SIZE_X, GL_WIN_SIZE_Y);
+	glutCreateWindow (m_strSampleName);
+	// 	glutFullScreen();
+	//glutSetCursor(GLUT_CURSOR_NONE);
+
+	InitOpenGLHooks();
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_TEXTURE_2D);
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_COLOR_ARRAY);
+
+	return openni::STATUS_OK;
+
+}
+void SampleViewer::InitOpenGLHooks()
+{
+	glutKeyboardFunc(glutKeyboard);
+	glutDisplayFunc(glutDisplay);
+	glutIdleFunc(glutIdle);
+	glutMouseFunc(glutMouse);
+	glutMotionFunc(glutMouseMotion);
 }
 
 void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
@@ -1988,32 +1436,566 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 
 }
 
-openni::Status SampleViewer::InitOpenGL(int argc, char **argv)
+vector cross(pointf a,pointf b)
 {
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowPosition(650,230);
-	glutInitWindowSize(GL_WIN_SIZE_X, GL_WIN_SIZE_Y);
-	glutCreateWindow (m_strSampleName);
-	// 	glutFullScreen();
-	//glutSetCursor(GLUT_CURSOR_NONE);
-
-	InitOpenGLHooks();
-
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_TEXTURE_2D);
-
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-
-	return openni::STATUS_OK;
-
+	vector axb;
+	axb.x=a.y*b.z-a.z*b.y;
+	axb.y=a.z*b.x-a.x*b.z;
+	axb.z=a.x*b.y-a.y*b.x;
+	return axb;
 }
-void SampleViewer::InitOpenGLHooks()
+void calculateNormalMap(pointf *pointCloud)
 {
-	glutKeyboardFunc(glutKeyboard);
-	glutDisplayFunc(glutDisplay);
-	glutIdleFunc(glutIdle);
-	glutMouseFunc(glutMouse);
-	glutMotionFunc(glutMouseMotion);
+	for (int y = 0; y < DEPTH_HEIGHT-1; ++y)
+		for (int x = 0; x < DEPTH_WIDTH-1; ++x)
+		{
+			int index = y*DEPTH_WIDTH+x,right = y*DEPTH_WIDTH+x+1 , bot = (y+1)*DEPTH_WIDTH+x;
+			if(pointCloud[index].type==0)
+			{
+				pointf a,b;
+				a.x = pointCloud[right].x - pointCloud[index].x;
+				a.y = pointCloud[right].y - pointCloud[index].y;
+				a.z = pointCloud[right].z - pointCloud[index].z;
+				b.x = pointCloud[bot].x - pointCloud[index].x;
+				b.y = pointCloud[bot].y - pointCloud[index].y;
+				b.z = pointCloud[bot].z - pointCloud[index].z;
+				pointCloud[index].normal.copyFrom(cross(b,a));
+				pointCloud[index].normal.normalize();
+			}
+		}
+}
+
+
+void SampleViewer::humanDisplay()
+{
+	frameCounter++;
+	nite::UserTrackerFrameRef userTrackerFrame[MAX_DEVICE];
+	openni::VideoFrameRef depthFrame[MAX_DEVICE],colorFrame[MAX_DEVICE];
+	for(int i=0;i<deviceNum;i++)
+	{
+		
+		nite::Status rc = m_pUserTracker[i]->readFrame(&userTrackerFrame[i]);
+		if (rc != nite::STATUS_OK)
+		{
+			printf("GetNextData failed\n");
+			return;
+		}
+		m_colorStream[i].readFrame(&colorFrame[i]);
+		depthFrame[i] = userTrackerFrame[i].getDepthFrame();
+	}
+
+
+	
+
+
+	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	if(viewMode)
+		gluPerspective( /* field of view in degree */ View_Distance,
+		/* aspect ratio */ 1.0,
+		/* Z near */ 1, /* Z far */ 10000);
+	else
+		glOrtho(-80,80,-60,60,0,10000);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	//gluLookAt(0 ,0 ,0,  /* eye is at () */
+	//	0.0,0.0 , View_Distance,      /* center is at (0,0,0) */
+	//	0.0, -1.0,0.0); 
+	gluLookAt(0 ,0 ,0,  /* eye is at () */
+		0.0,0 , 1,      /* center is at (0,0,0) */
+		0.0, 1.0,0.0); 
+
+
+	float factor[3] = {1, 1, 1};
+	float xShifter[3] = {0,0,0};
+	// check if we need to draw depth frame to texture
+	double avgZ=0;
+	int outlier[MAX_DEVICE] = {0},countIt[MAX_DEVICE] = {0} , outlierBase[MAX_DEVICE] = {0} , countItBase[MAX_DEVICE] = {0};
+	for(int i=0;i<deviceNum;i++)
+	{
+		int sumZ = 0,sumX = 0,sumY = 0;
+		int num = 0;
+		
+		if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
+		{
+			const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
+			const nite::UserId* pLabels = userLabels.getPixels();
+			const nite::UserId* isHuman = userLabels.getPixels();
+			const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
+
+			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
+			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
+			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
+
+			if(trackingID[i] >= users.getSize())
+				trackingID[i] = 0;
+
+			/*if(trackingID[i]<users.getSize())
+			{
+				if(users[trackingID[i]].isNew())
+				{
+					m_pUserTracker[i]->startSkeletonTracking( users[trackingID[i]].getId() );
+				}
+				pointf head;
+				if(users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPositionConfidence()<0.5)
+					skeletonCaptured = false;
+				else
+					skeletonCaptured = true;
+				head.x  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().x;
+				head.y  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().y;
+				head.z  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().z;
+				float realx,realy;
+				m_pUserTracker[trackingID[i]]->convertJointCoordinatesToDepth(head.x,head.y,head.z,&realx,&realy);
+
+				pointf avg;
+				avg.setToZero();
+				int count = 0;
+				for(int y=realy-10;y<realy+10;y++)
+					for(int x=realx-10;x<realx+10;x++)
+						if(pDepthRow[y*DEPTH_WIDTH+x]!=0&&isHuman[y*DEPTH_WIDTH+x]!=0)
+						{
+							count++;
+							avg.x+=x;
+							avg.y+=y;
+							avg.z+=pDepthRow[y*DEPTH_WIDTH+x];
+						}
+				if(count!=0)
+				{
+					avg.x/=count;
+					avg.y/=count;
+					avg.z/=count;
+				}
+				torso[i].copyFrom(avg);
+				int x = realx , y = realy;
+				torso[i].x=realx;
+				torso[i].y=realy;
+				torso[i].z=pDepthRow[y*DEPTH_WIDTH+x];
+			}
+			else
+				skeletonCaptured = false;*/
+			skeletonCaptured = false;
+			for(int j=0;j<users.getSize();j++)
+			{
+				if(users[j].isNew())
+				{
+					m_pUserTracker[i]->startSkeletonTracking( users[trackingID[i]].getId() );
+				}
+				if(j==trackingID[i])
+				{
+					pointf head;
+					if(users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPositionConfidence()<0.5)
+						skeletonCaptured = false;
+					else
+						skeletonCaptured = true;
+					head.x  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().x/trueFactor;
+					head.y  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().y/trueFactor;
+					head.z  = users[trackingID[i]].getSkeleton().getJoint(nite::JOINT_TORSO).getPosition().z/trueFactor;
+					torso[i].copyFrom(head);
+					//float realx,realy;
+					//m_pUserTracker[trackingID[i]]->convertJointCoordinatesToDepth(head.x,head.y,head.z,&realx,&realy);
+
+					/*pointf avg;
+					avg.setToZero();
+					int count = 0;
+					for(int y=realy-10;y<realy+10;y++)
+						for(int x=realx-10;x<realx+10;x++)
+							if(pDepthRow[y*DEPTH_WIDTH+x]!=0&&isHuman[y*DEPTH_WIDTH+x]!=0)
+							{
+								count++;
+								avg.x+=x;
+								avg.y+=y;
+								avg.z+=pDepthRow[y*DEPTH_WIDTH+x];
+							}
+					if(count!=0)
+					{
+						avg.x/=count;
+						avg.y/=count;
+						avg.z/=count;
+					}
+					torso[i].copyFrom(avg);*/
+					
+					/*int xx = realx , yy = realy;
+					torso[i].x=realx;
+					torso[i].y=realy;
+					torso[i].z=head.z;*/
+				}
+				/*if(trackingID[i]!=j)
+				{
+					m_pUserTracker[i]->stopSkeletonTracking(users[j].getId());
+				}*/
+			}
+			float realX,realY;
+			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
+			{
+				const openni::DepthPixel* pDepth = pDepthRow;
+				const openni::RGB888Pixel* pImage = pImageRow;
+
+				for (int x = 0; x < DEPTH_WIDTH; ++x, ++pDepth, ++pLabels,++pImage)
+				{
+					int index = y*DEPTH_WIDTH+x;
+					if(i==BASE)
+						basePointCloud[index].type = -1;
+					pointCloud[i][index].type = -1;
+					if (*pDepth != 0)
+					{
+						
+						if (*pLabels != 0)
+						{
+							
+
+							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realX,&realY);
+							if(i==BASE)
+							{
+								basePointCloud[index].x = realX;
+								basePointCloud[index].y = realY;
+								basePointCloud[index].z = pDepth[0];
+								basePointCloud[index].type = 0;//human point
+							}
+							
+							{
+								pointCloud[i][index].x = realX+translateT[i].x;
+								pointCloud[i][index].y = realY+translateT[i].y;
+								pointCloud[i][index].z = pDepth[0]+translateT[i].z;
+								pointCloud[i][index].type = 0;//human point
+							}
+							sumX+=realX;
+							sumY+=realY;
+							sumZ+=pDepth[0];
+							num++;
+
+						}
+						else
+						{
+							if(i==BASE)
+							{
+								basePointCloud[index].x = 0;
+								basePointCloud[index].y = 0;
+								basePointCloud[index].z = 0;
+								basePointCloud[index].type = -1;//non human point
+							}
+							
+							{
+								pointCloud[i][index].x = 0;
+								pointCloud[i][index].y = 0;
+								pointCloud[i][index].z = 0;
+								pointCloud[i][index].type = -1;//non human point
+							}
+						}
+					}
+				}
+				pImageRow += rowSize;
+				pDepthRow += rowSize;
+				//pTexRow += m_nTexMapX;
+			}
+			
+		}
+		
+		if(num!=0)
+		{
+			//meanZ[i] = ((float)sumZ)/num;
+			meanX[i] = ((float)sumX)/num;
+			meanY[i] = ((float)sumY)/num;
+			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
+			meanZ[i] = pDepthRow[depthFrame[i].getWidth()*((int)meanY[i])+(int)meanX[i]]/zFactor;
+			avgZ=((float)sumZ)/num;
+			//float realx,realy;
+			//m_pUserTracker[i]->convertDepthCoordinatesToJoint((int)meanX[i],depthFrame[i].getHeight()-((int)meanY[i]),meanZ[i],&realx,&realy);
+			humanCenter[i].x = meanX[i];
+			humanCenter[i].y = meanY[i];
+			humanCenter[i].z = avgZ;
+		}
+		else
+		{
+			meanZ[i]=0;
+			avgZ=0;
+		}
+		if(i!=BASE)
+		{
+			//int index;
+			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
+			{
+				for (int x = 0; x < DEPTH_WIDTH; ++x)
+				{
+					int index = y*DEPTH_WIDTH+x;
+					if(basePointCloud[index].type==0)
+					{
+						//printf("say yes\n");
+						pointCloud[BASE][index].copyFrom(basePointCloud[index]);
+						rotate(-1*rotateR[i].y,pointCloud[BASE][index],humanCenter[BASE]);
+					}
+					if(pointCloud[i][index].type==0)
+						rotate(rotateR[i].y,pointCloud[i][index],humanCenter[i]);
+					
+				}
+			}
+
+			calculateNormalMap(pointCloud[i]);
+			calculateNormalMap(pointCloud[BASE]);
+			pointf begin,end;
+			begin.setToZero();
+			end.setToZero();
+			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
+			{
+				for (int x = 0; x < DEPTH_WIDTH; ++x)
+				{
+					int index = y*DEPTH_WIDTH+x;
+					
+					if(pointCloud[i][index].type==0)
+					{
+						if(pointCloud[i][index].normal.z>0)
+						{
+							float weight = pointCloud[i][index].normal.z;
+							begin.x+=weight*pointCloud[i][index].x;
+							begin.y+=weight*pointCloud[i][index].y;
+							begin.z+=weight*pointCloud[i][index].z;
+							begin.count+=weight;
+							countItBase[i]++;
+						}
+						else
+						{
+							outlierBase[i]++;
+						}
+					}
+					if(pointCloud[BASE][index].type==0)
+					{
+						if(pointCloud[BASE][index].normal.z>0)
+						{
+							float weight = pointCloud[BASE][index].normal.z;
+							end.x+=weight*basePointCloud[index].x;
+							end.y+=weight*basePointCloud[index].y;
+							end.z+=weight*basePointCloud[index].z;
+							end.count+=weight;
+							countIt[i]++;
+						}
+						else
+						{
+							outlier[i]++;
+						}
+					}
+				}
+			}
+			begin.DoAvg();
+			end.DoAvg();
+			realTranslate[i].doVector(begin,end);
+		}
+	}
+	pointf translateTH[MAX_DEVICE];
+	for(int i=0;i<deviceNum;i++)
+	{
+		translateTH[i].setToZero();
+		if(i!=BASE)
+		{
+			translateTH[i].x = meanX[BASE] - meanX[i];
+			translateTH[i].y = meanY[BASE] - meanY[i];
+			translateTH[i].z = meanZ[BASE] - meanZ[i];
+		}
+	}
+	for(int i=0;i<deviceNum;i++)
+	{
+		if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
+		{
+			//printf("Drawing : %d\n",i);
+			const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
+			const nite::UserId* pLabels = userLabels.getPixels();
+			
+			const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
+
+
+
+			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
+			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
+			//openni::RGB888Pixel* pTexRow = m_pTexMap + depthFrame.getCropOriginY() * m_nTexMapX;
+			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
+
+			glPushMatrix();
+			glTranslatef(translateX[i],translateY[i],0);
+			/*
+			glTranslatef(xShifter[i],0,meanZ[i]);
+			if(soraMode)
+				glRotatef(90,1,0,0);
+			glRotatef(theta[i],0,1,0);
+			glTranslatef(-(xShifter[i]),0,-meanZ[i]);*/
+			//glTranslatef(translateT[i].x,translateT[i].y,translateT[i].z);
+			/*pointf T;
+			T.x = torso[BASE].x - torso[i].x;
+			T.y = torso[BASE].y - torso[i].y;
+			T.z = torso[BASE].z - torso[i].z;
+			glTranslatef(T.x,T.y,T.z);*/
+			if(i!=BASE);
+				//glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
+			/*rotate(rotateR[i].y,torso[i],torso[BASE]);
+			pointf T;
+			T.x = torso[BASE].x - torso[i].x;
+			T.y = torso[BASE].y - torso[i].y;
+			T.z = torso[BASE].z - torso[i].z;*/
+			//glTranslatef(T.x,T.y,T.z);
+			//glTranslatef(translateTH[i].x/10,translateTH[i].y/10,translateTH[i].z);
+			pointf t;
+			skeletonCaptured = false;
+			if(skeletonCaptured)
+			{
+				if(rotationMode)
+				{
+					theta[i] += 0.3;
+					printf("%f\n",theta[i]);
+				}
+				t.x = torso[i].x;
+				t.y = torso[i].y;
+				t.z = torso[i].z;
+				glTranslatef(t.x,t.y,t.z);
+				//glTranslatef(calibrationCenter[i].x-34,calibrationCenter[i].y-32,calibrationCenter[i].z);
+				glRotatef(rotateR[i].y+theta[i],0,1,0);
+				//glTranslatef(-1*(calibrationCenter[i].x-34),-1*(calibrationCenter[i].y-32),-1*calibrationCenter[i].z);
+				glTranslatef(-t.x,-t.y,-t.z);
+			}
+			else
+			{
+				//glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
+				//glRotatef(rotateR[i].y+theta[i],0,1,0);
+				//glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
+			}
+
+
+
+			float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
+			float centerX=320,centerY=240;
+			glBegin(GL_POINTS);  
+			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
+			{
+				const openni::DepthPixel* pDepth = pDepthRow;
+				const openni::RGB888Pixel* pImage = pImageRow;
+				//openni::RGB888Pixel* pTex = pTexRow + depthFrame.getCropOriginX();
+
+				for (int x = 0; x < depthFrame[i].getWidth(); ++x, ++pDepth, ++pLabels,++pImage)
+				{
+					if (*pDepth != 0)
+					{
+						if (*pLabels != 0)
+						{
+							int index = y*DEPTH_WIDTH+x;
+							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
+							//int nHistValue = m_pDepthHist[*pDepth];
+							double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
+							if(scaleMode==false)
+								wariai = 1;
+							double realX,realY;
+							realX = (wariai * (x-centerX))+centerX;
+							realY = (wariai * (y-centerY))+centerY;
+							float realx,realy;
+							//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
+							//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
+							if(i==BASE)
+							{
+								glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+							}
+							else
+							{
+								//if(pointCloud[i][index].normal.x>0)
+									glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
+							}
+							//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
+							/*if(denseMode)
+							{
+								glVertex3f(realX/10.0-24+xShifter[i]-10+basicDx,realY/10.0-32,pDepth[0]/zFactor);
+								glVertex3f(realX/10.0-24+xShifter[i]-10-basicDx,realY/10.0-32,pDepth[0]/zFactor);
+								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32+basicDy,pDepth[0]/zFactor);
+								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32-basicDy,pDepth[0]/zFactor);
+								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor+basicDz);
+								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor-basicDz);
+							}*/
+							/*else
+							{
+								glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10);
+								if(denseMode)
+								{
+									glVertex3f(x/10.0-24+xShifter[i]-10+basicDx,y/10.0-32,pDepth[0]/10);
+									glVertex3f(x/10.0-24+xShifter[i]-10-basicDx,y/10.0-32,pDepth[0]/10);
+									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32+basicDy,pDepth[0]/10);
+									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32-basicDy,pDepth[0]/10);
+									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10+basicDz);
+									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10-basicDz);
+								}
+							}*/
+						}
+					}
+				}
+				pImageRow += rowSize;
+				pDepthRow += rowSize;
+				//pTexRow += m_nTexMapX;
+			}
+			glEnd();
+			//printf("avg depth=%f\n",sum/num);
+			glPopMatrix();
+			/*
+			// begin draw head point
+			if(i==0)
+				glColor3f(1,0,0);
+			else if(i==1)
+				glColor3f(0,1,0);
+			glPointSize(8);
+			glBegin(GL_POINTS); 
+				glVertex3f(torso[i].x,torso[i].y,torso[i].z);
+			glEnd();
+			glPointSize(1);*/
+			if(frameCounter%SHOW_DATA_PER_FRAME==0)
+			{
+				printf("kinect %d : ",i);
+				printf("realtranslate : ");
+				realTranslate[i].print();
+				printf("outlier : %d\n",outlier[i]);
+				printf("count it :%d\n",countIt[i]);
+				printf("outlier base : %d\n",outlierBase[i]);
+				printf("count it base : %d\n",countItBase[i]);
+				frameCounter = 0;
+			}
+
+
+			//draw boxing
+			/*pointf realCenter,halfSide;
+			halfSide.x = 13;
+			halfSide.y = 20;
+			halfSide.z = 15;
+			realCenter.x = calibrationCenter[i].x-34;
+			realCenter.y = calibrationCenter[i].y-32;
+			realCenter.z = calibrationCenter[i].z;
+			if(i==0)
+				glColor3f(0,0,1);
+			else
+				glColor3f(0,1,0);
+			glBegin(GL_LINES);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
+				
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z+halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x+halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y-halfSide.y,realCenter.z-halfSide.z);
+				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
+			glEnd();*/
+
+		}
+	}
+
+
+
+	
+	// Swap the OpenGL display buffers
+	glutSwapBuffers();
+	//system("pause");
 }
