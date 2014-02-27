@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include"vector.h"
+#include"mcolor.h"
 struct pointf
 {
 public:
@@ -12,6 +13,7 @@ public:
 	double z;
 	int type;
 	float count;
+	mcolor color;
 	pointf()
 	{
 		setToZero();
@@ -39,6 +41,9 @@ public:
 		x = source.x;
 		y = source.y;
 		z = source.z;
+		color.b = source.color.b;
+		color.g = source.color.g;
+		color.r = source.color.r;
 		count = source.count;
 		type = source.type;
 		normal.copyFrom(source.normal);

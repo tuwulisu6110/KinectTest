@@ -25,6 +25,8 @@
 
 
 #define BASE 0
+#define VOLUME_X 500
+#define VOLUME_Y 500
 #define GL_WIN_SIZE_X	1024
 #define GL_WIN_SIZE_Y	768
 #define TEXTURE_SIZE	512
@@ -128,6 +130,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	viewMode = true;
 	takePicture = false;
 	selectingMode = false;
+	traditionMode = false;
 	newChange = false;
 	viewingID = 0;
 	humanDisplayMode = false;
@@ -155,6 +158,8 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 		pointCloud[i] = new pointf[DEPTH_WIDTH*DEPTH_HEIGHT];
 	}
 	humanCenter = new pointf[MAX_DEVICE];
+	volume = new voxel[VOLUME_X*VOLUME_Y];
+
 }
 SampleViewer::~SampleViewer()
 {
@@ -181,6 +186,7 @@ SampleViewer::~SampleViewer()
 	delete pointCloud;
 	delete realTranslate;
 	delete humanCenter;
+	delete [] volume;
 }
 
 void SampleViewer::Finalize()
@@ -1432,6 +1438,12 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		printf("translate x : %f,translate y : %f\n",translateX[0],translateY[0]);
 		file2.close();
 		break;	
+	case 't':
+		if(traditionMode)
+			traditionMode = false;
+		else
+			traditionMode = true;
+		break;
 	}
 
 }
@@ -1483,8 +1495,8 @@ void SampleViewer::humanDisplay()
 		m_colorStream[i].readFrame(&colorFrame[i]);
 		depthFrame[i] = userTrackerFrame[i].getDepthFrame();
 	}
-
-
+	for(int i=0;i<VOLUME_X*VOLUME_Y;i++)
+		volume[i].reset();
 	
 
 
@@ -1576,7 +1588,7 @@ void SampleViewer::humanDisplay()
 			}
 			else
 				skeletonCaptured = false;*/
-			skeletonCaptured = false;
+			/*skeletonCaptured = false;
 			for(int j=0;j<users.getSize();j++)
 			{
 				if(users[j].isNew())
@@ -1621,12 +1633,12 @@ void SampleViewer::humanDisplay()
 					torso[i].x=realx;
 					torso[i].y=realy;
 					torso[i].z=head.z;*/
-				}
+				//}
 				/*if(trackingID[i]!=j)
 				{
 					m_pUserTracker[i]->stopSkeletonTracking(users[j].getId());
 				}*/
-			}
+			//}
 			float realX,realY;
 			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
 			{
@@ -1653,12 +1665,24 @@ void SampleViewer::humanDisplay()
 								basePointCloud[index].y = realY;
 								basePointCloud[index].z = pDepth[0];
 								basePointCloud[index].type = 0;//human point
+								basePointCloud[index].color.set(pImage->r/255.0,pImage->g/255.0,pImage->b/255.0);
+								if(realX<0||realX>=VOLUME_X||realY<0||realY>=VOLUME_Y)
+								{
+									printf("X=%f,Y=%f\n",realX,realY);
+									system("pause");
+								}
+								else
+								{
+									int ref = ((int)realY)*VOLUME_X+((int)realX);
+									volume[ref].addPoint(basePointCloud[index]);
+								}
 							}
 							
 							{
 								pointCloud[i][index].x = realX+translateT[i].x;
 								pointCloud[i][index].y = realY+translateT[i].y;
 								pointCloud[i][index].z = pDepth[0]+translateT[i].z;
+								pointCloud[i][index].color.set(pImage->r/255.0,pImage->g/255.0,pImage->b/255.0);
 								pointCloud[i][index].type = 0;//human point
 							}
 							sumX+=realX;
@@ -1727,7 +1751,16 @@ void SampleViewer::humanDisplay()
 						rotate(-1*rotateR[i].y,pointCloud[BASE][index],humanCenter[BASE]);
 					}
 					if(pointCloud[i][index].type==0)
+					{
 						rotate(rotateR[i].y,pointCloud[i][index],humanCenter[i]);
+						if(pointCloud[i][index].y<0||pointCloud[i][index].y>=VOLUME_Y||pointCloud[i][index].x<0||pointCloud[i][index].x>=VOLUME_Y)
+						{
+							printf("i=%d , x = %f , y = %f\n",i,pointCloud[i][index].x,pointCloud[i][index].y);
+							system("pause");
+						}
+						int ref = ((int)pointCloud[i][index].y)*VOLUME_X+((int)pointCloud[i][index].x);
+						volume[ref].addPoint(basePointCloud[index]);
+					}
 					
 				}
 			}
@@ -1780,39 +1813,57 @@ void SampleViewer::humanDisplay()
 			begin.DoAvg();
 			end.DoAvg();
 			realTranslate[i].doVector(begin,end);
+			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
+			{
+				for (int x = 0; x < DEPTH_WIDTH; ++x)
+				{
+					int index = y*DEPTH_WIDTH+x;
+					if(pointCloud[i][index].type==0)
+					{
+						pointCloud[i][index].x += realTranslate[i].x;
+						pointCloud[i][index].y += realTranslate[i].y;
+						pointCloud[i][index].z += realTranslate[i].z;
+						int ref = ((int)pointCloud[i][index].y)*VOLUME_X+((int)pointCloud[i][index].x);
+						volume[ref].addPoint(pointCloud[i][index]);
+					}
+				}
+			}
 		}
+
 	}
-	pointf translateTH[MAX_DEVICE];
-	for(int i=0;i<deviceNum;i++)
+	if(traditionMode)
 	{
-		translateTH[i].setToZero();
-		if(i!=BASE)
+		pointf translateTH[MAX_DEVICE];
+		for(int i=0;i<deviceNum;i++)
 		{
-			translateTH[i].x = meanX[BASE] - meanX[i];
-			translateTH[i].y = meanY[BASE] - meanY[i];
-			translateTH[i].z = meanZ[BASE] - meanZ[i];
+			translateTH[i].setToZero();
+			if(i!=BASE)
+			{
+				translateTH[i].x = meanX[BASE] - meanX[i];
+				translateTH[i].y = meanY[BASE] - meanY[i];
+				translateTH[i].z = meanZ[BASE] - meanZ[i];
+			}
 		}
-	}
-	for(int i=0;i<deviceNum;i++)
-	{
-		if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
+		for(int i=0;i<deviceNum;i++)
 		{
-			//printf("Drawing : %d\n",i);
-			const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
-			const nite::UserId* pLabels = userLabels.getPixels();
+			if (depthFrame[i].isValid() && g_drawDepth && colorFrame[i].isValid())
+			{
+				//printf("Drawing : %d\n",i);
+				const nite::UserMap& userLabels = userTrackerFrame[i].getUserMap();
+				const nite::UserId* pLabels = userLabels.getPixels();
 			
-			const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
+				const nite::Array<nite::UserData>& users = userTrackerFrame[i].getUsers();
 
 
 
-			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
-			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
-			//openni::RGB888Pixel* pTexRow = m_pTexMap + depthFrame.getCropOriginY() * m_nTexMapX;
-			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
+				const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
+				const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
+				//openni::RGB888Pixel* pTexRow = m_pTexMap + depthFrame.getCropOriginY() * m_nTexMapX;
+				int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
 
-			glPushMatrix();
-			glTranslatef(translateX[i],translateY[i],0);
-			/*
+				glPushMatrix();
+				glTranslatef(translateX[i],translateY[i],0);
+															/*
 			glTranslatef(xShifter[i],0,meanZ[i]);
 			if(soraMode)
 				glRotatef(90,1,0,0);
@@ -1824,8 +1875,8 @@ void SampleViewer::humanDisplay()
 			T.y = torso[BASE].y - torso[i].y;
 			T.z = torso[BASE].z - torso[i].z;
 			glTranslatef(T.x,T.y,T.z);*/
-			if(i!=BASE);
-				//glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
+				if(i!=BASE);
+												//glTranslatef(realTranslate[i].x/trueFactor,realTranslate[i].y/trueFactor,realTranslate[i].z/trueFactor);
 			/*rotate(rotateR[i].y,torso[i],torso[BASE]);
 			pointf T;
 			T.x = torso[BASE].x - torso[i].x;
@@ -1833,127 +1884,127 @@ void SampleViewer::humanDisplay()
 			T.z = torso[BASE].z - torso[i].z;*/
 			//glTranslatef(T.x,T.y,T.z);
 			//glTranslatef(translateTH[i].x/10,translateTH[i].y/10,translateTH[i].z);
-			pointf t;
-			skeletonCaptured = false;
-			if(skeletonCaptured)
-			{
-				if(rotationMode)
+				pointf t;
+				skeletonCaptured = false;
+				if(skeletonCaptured)
 				{
-					theta[i] += 0.3;
-					printf("%f\n",theta[i]);
+					if(rotationMode)
+					{
+						theta[i] += 0.3;
+						printf("%f\n",theta[i]);
+					}
+					t.x = torso[i].x;
+					t.y = torso[i].y;
+					t.z = torso[i].z;
+					glTranslatef(t.x,t.y,t.z);
+					//glTranslatef(calibrationCenter[i].x-34,calibrationCenter[i].y-32,calibrationCenter[i].z);
+					glRotatef(rotateR[i].y+theta[i],0,1,0);
+					//glTranslatef(-1*(calibrationCenter[i].x-34),-1*(calibrationCenter[i].y-32),-1*calibrationCenter[i].z);
+					glTranslatef(-t.x,-t.y,-t.z);
 				}
-				t.x = torso[i].x;
-				t.y = torso[i].y;
-				t.z = torso[i].z;
-				glTranslatef(t.x,t.y,t.z);
-				//glTranslatef(calibrationCenter[i].x-34,calibrationCenter[i].y-32,calibrationCenter[i].z);
-				glRotatef(rotateR[i].y+theta[i],0,1,0);
-				//glTranslatef(-1*(calibrationCenter[i].x-34),-1*(calibrationCenter[i].y-32),-1*calibrationCenter[i].z);
-				glTranslatef(-t.x,-t.y,-t.z);
-			}
-			else
-			{
-				//glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
+				else
+				{
+							//glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
 				//glRotatef(rotateR[i].y+theta[i],0,1,0);
 				//glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
-			}
+				}
 
 
 
-			float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
-			float centerX=320,centerY=240;
-			glBegin(GL_POINTS);  
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				const openni::DepthPixel* pDepth = pDepthRow;
-				const openni::RGB888Pixel* pImage = pImageRow;
-				//openni::RGB888Pixel* pTex = pTexRow + depthFrame.getCropOriginX();
-
-				for (int x = 0; x < depthFrame[i].getWidth(); ++x, ++pDepth, ++pLabels,++pImage)
+				float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
+				float centerX=320,centerY=240;
+				glBegin(GL_POINTS);  
+				for (int y = 0; y < depthFrame[i].getHeight(); ++y)
 				{
-					if (*pDepth != 0)
+					const openni::DepthPixel* pDepth = pDepthRow;
+					const openni::RGB888Pixel* pImage = pImageRow;
+					//openni::RGB888Pixel* pTex = pTexRow + depthFrame.getCropOriginX();
+
+					for (int x = 0; x < depthFrame[i].getWidth(); ++x, ++pDepth, ++pLabels,++pImage)
 					{
-						if (*pLabels != 0)
+						if (*pDepth != 0)
 						{
-							int index = y*DEPTH_WIDTH+x;
-							glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
-							//int nHistValue = m_pDepthHist[*pDepth];
-							double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
-							if(scaleMode==false)
-								wariai = 1;
-							double realX,realY;
-							realX = (wariai * (x-centerX))+centerX;
-							realY = (wariai * (y-centerY))+centerY;
-							float realx,realy;
-							//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
-							//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
-							if(i==BASE)
+							if (*pLabels != 0)
 							{
-								glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
-							}
-							else
-							{
-								//if(pointCloud[i][index].normal.x>0)
-									glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
-							}
-							//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
-							/*if(denseMode)
-							{
-								glVertex3f(realX/10.0-24+xShifter[i]-10+basicDx,realY/10.0-32,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10-basicDx,realY/10.0-32,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32+basicDy,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32-basicDy,pDepth[0]/zFactor);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor+basicDz);
-								glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor-basicDz);
-							}*/
-							/*else
-							{
-								glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10);
-								if(denseMode)
+								int index = y*DEPTH_WIDTH+x;
+								glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
+								//int nHistValue = m_pDepthHist[*pDepth];
+								double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
+								if(scaleMode==false)
+									wariai = 1;
+								double realX,realY;
+								realX = (wariai * (x-centerX))+centerX;
+								realY = (wariai * (y-centerY))+centerY;
+								float realx,realy;
+								//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
+								//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
+								if(i==BASE)
 								{
-									glVertex3f(x/10.0-24+xShifter[i]-10+basicDx,y/10.0-32,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10-basicDx,y/10.0-32,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32+basicDy,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32-basicDy,pDepth[0]/10);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10+basicDz);
-									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10-basicDz);
+									glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
-							}*/
+								else
+								{
+									//if(pointCloud[i][index].normal.x>0)
+										glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
+								}
+								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
+								/*if(denseMode)
+								{
+									glVertex3f(realX/10.0-24+xShifter[i]-10+basicDx,realY/10.0-32,pDepth[0]/zFactor);
+									glVertex3f(realX/10.0-24+xShifter[i]-10-basicDx,realY/10.0-32,pDepth[0]/zFactor);
+									glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32+basicDy,pDepth[0]/zFactor);
+									glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32-basicDy,pDepth[0]/zFactor);
+									glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor+basicDz);
+									glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor-basicDz);
+								}*/
+								/*else
+								{
+									glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10);
+									if(denseMode)
+									{
+										glVertex3f(x/10.0-24+xShifter[i]-10+basicDx,y/10.0-32,pDepth[0]/10);
+										glVertex3f(x/10.0-24+xShifter[i]-10-basicDx,y/10.0-32,pDepth[0]/10);
+										glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32+basicDy,pDepth[0]/10);
+										glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32-basicDy,pDepth[0]/10);
+										glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10+basicDz);
+										glVertex3f(x/10.0-24+xShifter[i]-10,y/10.0-32,pDepth[0]/10-basicDz);
+									}
+								}*/
+							}
 						}
 					}
+					pImageRow += rowSize;
+					pDepthRow += rowSize;
+					//pTexRow += m_nTexMapX;
 				}
-				pImageRow += rowSize;
-				pDepthRow += rowSize;
-				//pTexRow += m_nTexMapX;
-			}
-			glEnd();
-			//printf("avg depth=%f\n",sum/num);
-			glPopMatrix();
-			/*
-			// begin draw head point
-			if(i==0)
-				glColor3f(1,0,0);
-			else if(i==1)
-				glColor3f(0,1,0);
-			glPointSize(8);
-			glBegin(GL_POINTS); 
-				glVertex3f(torso[i].x,torso[i].y,torso[i].z);
-			glEnd();
-			glPointSize(1);*/
-			if(frameCounter%SHOW_DATA_PER_FRAME==0)
-			{
-				printf("kinect %d : ",i);
-				printf("realtranslate : ");
-				realTranslate[i].print();
-				printf("outlier : %d\n",outlier[i]);
-				printf("count it :%d\n",countIt[i]);
-				printf("outlier base : %d\n",outlierBase[i]);
-				printf("count it base : %d\n",countItBase[i]);
-				frameCounter = 0;
-			}
+				glEnd();
+				//printf("avg depth=%f\n",sum/num);
+				glPopMatrix();
+				/*
+				// begin draw head point
+				if(i==0)
+					glColor3f(1,0,0);
+				else if(i==1)
+					glColor3f(0,1,0);
+				glPointSize(8);
+				glBegin(GL_POINTS); 
+					glVertex3f(torso[i].x,torso[i].y,torso[i].z);
+				glEnd();
+				glPointSize(1);*/
+				if(frameCounter%SHOW_DATA_PER_FRAME==0)
+				{
+					printf("kinect %d : ",i);
+					printf("realtranslate : ");
+					realTranslate[i].print();
+					printf("outlier : %d\n",outlier[i]);
+					printf("count it :%d\n",countIt[i]);
+					printf("outlier base : %d\n",outlierBase[i]);
+					printf("count it base : %d\n",countItBase[i]);
+					frameCounter = 0;
+				}
 
 
-			//draw boxing
+																																						//draw boxing
 			/*pointf realCenter,halfSide;
 			halfSide.x = 13;
 			halfSide.y = 20;
@@ -1989,10 +2040,25 @@ void SampleViewer::humanDisplay()
 				glVertex3f(realCenter.x-halfSide.x,realCenter.y+halfSide.y,realCenter.z-halfSide.z);
 			glEnd();*/
 
+			}
 		}
 	}
+	else
+	{
+		glBegin(GL_POINTS);  
+		glPushMatrix();
+		for(int i = 0;i<VOLUME_X*VOLUME_Y;i++)
+		{
+			for(int j=0;j<volume[i].numOfPoints;j++)
+			{
+				glColor3f(volume[i].pointList[j].color.r,volume[i].pointList[j].color.g,volume[i].pointList[j].color.b);
+				glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
 
-
+			}
+		}
+		glPopMatrix();
+		glEnd();
+	}
 
 	
 	// Swap the OpenGL display buffers

@@ -13,6 +13,8 @@
 #define MAX_DEPTH 10000
 #define MAX_DEVICE 3
 #include"pointf.h"
+#include"voxel.h"
+#include"mcolor.h"
 class SampleViewer
 {
 public:
@@ -106,6 +108,7 @@ private:
 	bool skeletonCaptured;
 	int frameCounter;
 	bool rotationMode;
+	bool traditionMode;
 
 	pointf *translateT;
 	vector *realTranslate;
@@ -115,6 +118,7 @@ private:
 	pointf **pointCloud;
 	pointf *basePointCloud;
 	pointf *humanCenter;
+	voxel *volume;
 };
 
 
