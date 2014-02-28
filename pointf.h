@@ -19,7 +19,6 @@ public:
 		setToZero();
 		normal.setToZero();
 	}
-
 	void setToZero()
 	{
 		x=0;

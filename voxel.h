@@ -2,7 +2,7 @@
 #define _VOXEL_H_
 #include "pointf.h"
 #include <vector>
-#define DLIMIT 2
+#define DLIMIT 20
 struct voxel
 {
 public:
@@ -33,7 +33,7 @@ public:
 	{
 		if(NA)
 		{
-			listSize = 10;
+			listSize = 100;
 			pointList = new pointf[listSize];
 			NA = false;
 		}

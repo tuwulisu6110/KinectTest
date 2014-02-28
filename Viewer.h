@@ -93,6 +93,7 @@ private:
 	float* translateY;
 	bool soraMode;
 	bool viewMode;
+	bool shiftMode;
 	int viewingID;
 	int *trackingID;//for skeleton
 	int userDeviceSwitcher;

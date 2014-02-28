@@ -25,8 +25,8 @@
 
 
 #define BASE 0
-#define VOLUME_X 500
-#define VOLUME_Y 500
+#define VOLUME_X 1000
+#define VOLUME_Y 1000
 #define GL_WIN_SIZE_X	1024
 #define GL_WIN_SIZE_Y	768
 #define TEXTURE_SIZE	512
@@ -137,6 +137,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	scaleMode = true;
 	denseMode = true;
 	rotationMode = false;
+	shiftMode = false;
 	nowX=0;
 	nowY=0;
 	nowDevice = 0;
@@ -1242,7 +1243,9 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		exit (1);
 	case 'a':
 		if(!selectingMode&&humanDisplayMode)
-			translateX[0]+=-1;
+		{
+			translateX[1]+=-10;
+		}
 		else
 		{
 			nowX--;
@@ -1253,7 +1256,9 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 'd':
 		if(!selectingMode&&humanDisplayMode)
-			translateX[0]+=1;
+		{
+			translateX[1]+=10;
+		}
 		else
 		{
 			nowX++;
@@ -1264,7 +1269,9 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 's':
 		if(!selectingMode&&humanDisplayMode)
-			translateY[0]+=1;
+		{
+			translateY[1]+=10;
+		}
 		else
 		{
 			nowY++;
@@ -1276,12 +1283,12 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 'S':
 		file3.open("translate.txt", std::fstream::out | std::fstream::trunc);
-		file3<<translateX[0]<<" "<<translateY[0]<<std::endl;
+		file3<<translateX[1]<<" "<<translateY[1]<<std::endl;
 		file3.close();
 		break;
 	case 'w':
 		if(!selectingMode&&humanDisplayMode)
-			translateY[0]+=-1;
+			translateY[1]+=-10;
 		else
 		{
 			nowY--;
@@ -1434,8 +1441,8 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			break;
 		}
 
-		file2>>translateX[0]>>translateY[0];
-		printf("translate x : %f,translate y : %f\n",translateX[0],translateY[0]);
+		file2>>translateX[1]>>translateY[1];
+		printf("translate x : %f,translate y : %f\n",translateX[1],translateY[1]);
 		file2.close();
 		break;	
 	case 't':
@@ -1443,6 +1450,12 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			traditionMode = false;
 		else
 			traditionMode = true;
+		break;
+	case 'z':
+		if(shiftMode)
+			shiftMode = false;
+		else
+			shiftMode = true;
 		break;
 	}
 
@@ -1462,7 +1475,7 @@ void calculateNormalMap(pointf *pointCloud)
 		for (int x = 0; x < DEPTH_WIDTH-1; ++x)
 		{
 			int index = y*DEPTH_WIDTH+x,right = y*DEPTH_WIDTH+x+1 , bot = (y+1)*DEPTH_WIDTH+x;
-			if(pointCloud[index].type==0)
+			if(pointCloud[index].type==0&&pointCloud[right].type==0&&pointCloud[bot].type==0)
 			{
 				pointf a,b;
 				a.x = pointCloud[right].x - pointCloud[index].x;
@@ -1479,13 +1492,13 @@ void calculateNormalMap(pointf *pointCloud)
 
 int reference(int x,int y)
 {
-	int X=(x+500)/4,Y=(y+500)/3;
+	int X=(x+2000)/8,Y=(y+1800)/6;
 	if(X<0||X>=VOLUME_X||Y<0||Y>=VOLUME_Y)
 	{
 		printf("x=%d,y=%d\n",X,Y);
 		system("pause");
 	}
-	return Y*VOLUME_X+X;
+	return Y*VOLUME_X+X-1;
 }
 
 void SampleViewer::humanDisplay()
@@ -1682,9 +1695,9 @@ void SampleViewer::humanDisplay()
 							}
 							
 							{
-								pointCloud[i][index].x = realX+translateT[i].x;
-								pointCloud[i][index].y = realY+translateT[i].y;
-								pointCloud[i][index].z = pDepth[0]+translateT[i].z;
+								pointCloud[i][index].x = realX;//+translateT[i].x;
+								pointCloud[i][index].y = realY;//+translateT[i].y;
+								pointCloud[i][index].z = pDepth[0];//+translateT[i].z;
 								pointCloud[i][index].color.set(pImage->r/255.0,pImage->g/255.0,pImage->b/255.0);
 								pointCloud[i][index].type = 0;//human point
 							}
@@ -1776,7 +1789,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[i][index].normal.z>0)
 						{
-							float weight = pointCloud[i][index].normal.z;
+							float weight = 1;//pointCloud[i][index].normal.z;
 							begin.x+=weight*pointCloud[i][index].x;
 							begin.y+=weight*pointCloud[i][index].y;
 							begin.z+=weight*pointCloud[i][index].z;
@@ -1792,7 +1805,7 @@ void SampleViewer::humanDisplay()
 					{
 						if(pointCloud[BASE][index].normal.z>0)
 						{
-							float weight = pointCloud[BASE][index].normal.z;
+							float weight = 1;//pointCloud[BASE][index].normal.z;
 							end.x+=weight*basePointCloud[index].x;
 							end.y+=weight*basePointCloud[index].y;
 							end.z+=weight*basePointCloud[index].z;
@@ -1809,21 +1822,22 @@ void SampleViewer::humanDisplay()
 			begin.DoAvg();
 			end.DoAvg();
 			realTranslate[i].doVector(begin,end);
-			for (int y = 0; y < depthFrame[i].getHeight(); ++y)
-			{
-				for (int x = 0; x < DEPTH_WIDTH; ++x)
+			if(shiftMode)
+				for (int y = 0; y < depthFrame[i].getHeight(); ++y)
 				{
-					int index = y*DEPTH_WIDTH+x;
-					if(pointCloud[i][index].type==0)
+					for (int x = 0; x < DEPTH_WIDTH; ++x)
 					{
-						pointCloud[i][index].x += realTranslate[i].x;
-						pointCloud[i][index].y += realTranslate[i].y;
-						pointCloud[i][index].z += realTranslate[i].z;
-						int ref = reference(pointCloud[i][index].x,pointCloud[i][index].y);
-						volume[ref].addPoint(pointCloud[i][index]);
+						int index = y*DEPTH_WIDTH+x;
+						if(pointCloud[i][index].type==0)
+						{
+							pointCloud[i][index].x += realTranslate[i].x+translateX[i];//+translateT[i].x;
+							pointCloud[i][index].y += realTranslate[i].y+translateY[i];//+translateT[i].y;
+							pointCloud[i][index].z += realTranslate[i].z;//+translateT[i].z;
+							int ref = reference(pointCloud[i][index].x,pointCloud[i][index].y);
+							volume[ref].addPoint(pointCloud[i][index]);
+						}
 					}
 				}
-			}
 		}
 
 	}
@@ -1858,7 +1872,7 @@ void SampleViewer::humanDisplay()
 				int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
 
 				glPushMatrix();
-				glTranslatef(translateX[i],translateY[i],0);
+				//glTranslatef(translateX[i],translateY[i],0);
 															/*
 			glTranslatef(xShifter[i],0,meanZ[i]);
 			if(soraMode)
@@ -1936,12 +1950,13 @@ void SampleViewer::humanDisplay()
 								//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
 								if(i==BASE)
 								{
-									glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+									//if(pointCloud[BASE][index].normal.z>0)
+										glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
 								else
 								{
-									//if(pointCloud[i][index].normal.x>0)
-										glVertex3f((pointCloud[i][index].x+realTranslate[i].x)/trueFactor,(pointCloud[i][index].y+realTranslate[i].y)/trueFactor,(pointCloud[i][index].z+realTranslate[i].z)/trueFactor);
+									//if(pointCloud[i][index].normal.z>0.6)
+										glVertex3f((pointCloud[i][index].x)/trueFactor,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
 								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
 								/*if(denseMode)
