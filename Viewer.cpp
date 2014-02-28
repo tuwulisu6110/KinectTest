@@ -1477,6 +1477,16 @@ void calculateNormalMap(pointf *pointCloud)
 		}
 }
 
+int reference(int x,int y)
+{
+	int X=(x+500)/4,Y=(y+500)/3;
+	if(X<0||X>=VOLUME_X||Y<0||Y>=VOLUME_Y)
+	{
+		printf("x=%d,y=%d\n",X,Y);
+		system("pause");
+	}
+	return Y*VOLUME_X+X;
+}
 
 void SampleViewer::humanDisplay()
 {
@@ -1666,16 +1676,9 @@ void SampleViewer::humanDisplay()
 								basePointCloud[index].z = pDepth[0];
 								basePointCloud[index].type = 0;//human point
 								basePointCloud[index].color.set(pImage->r/255.0,pImage->g/255.0,pImage->b/255.0);
-								if(realX<0||realX>=VOLUME_X||realY<0||realY>=VOLUME_Y)
-								{
-									printf("X=%f,Y=%f\n",realX,realY);
-									system("pause");
-								}
-								else
-								{
-									int ref = ((int)realY)*VOLUME_X+((int)realX);
-									volume[ref].addPoint(basePointCloud[index]);
-								}
+								int ref = reference((int)realX,(int)realY);
+								volume[ref].addPoint(basePointCloud[index]);
+								
 							}
 							
 							{
@@ -1753,13 +1756,6 @@ void SampleViewer::humanDisplay()
 					if(pointCloud[i][index].type==0)
 					{
 						rotate(rotateR[i].y,pointCloud[i][index],humanCenter[i]);
-						if(pointCloud[i][index].y<0||pointCloud[i][index].y>=VOLUME_Y||pointCloud[i][index].x<0||pointCloud[i][index].x>=VOLUME_Y)
-						{
-							printf("i=%d , x = %f , y = %f\n",i,pointCloud[i][index].x,pointCloud[i][index].y);
-							system("pause");
-						}
-						int ref = ((int)pointCloud[i][index].y)*VOLUME_X+((int)pointCloud[i][index].x);
-						volume[ref].addPoint(basePointCloud[index]);
 					}
 					
 				}
@@ -1823,7 +1819,7 @@ void SampleViewer::humanDisplay()
 						pointCloud[i][index].x += realTranslate[i].x;
 						pointCloud[i][index].y += realTranslate[i].y;
 						pointCloud[i][index].z += realTranslate[i].z;
-						int ref = ((int)pointCloud[i][index].y)*VOLUME_X+((int)pointCloud[i][index].x);
+						int ref = reference(pointCloud[i][index].x,pointCloud[i][index].y);
 						volume[ref].addPoint(pointCloud[i][index]);
 					}
 				}
@@ -2049,12 +2045,13 @@ void SampleViewer::humanDisplay()
 		glPushMatrix();
 		for(int i = 0;i<VOLUME_X*VOLUME_Y;i++)
 		{
-			for(int j=0;j<volume[i].numOfPoints;j++)
-			{
-				glColor3f(volume[i].pointList[j].color.r,volume[i].pointList[j].color.g,volume[i].pointList[j].color.b);
-				glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
+			if(volume[i].NA == false)
+				for(int j=0;j<volume[i].numOfPoints;j++)
+				{
+					glColor3f(volume[i].pointList[j].color.r,volume[i].pointList[j].color.g,volume[i].pointList[j].color.b);
+					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
 
-			}
+				}
 		}
 		glPopMatrix();
 		glEnd();
