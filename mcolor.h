@@ -12,5 +12,5 @@ public:
 		g=gg;
 		b=bb;
 	}
-}
+};
 #endif

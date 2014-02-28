@@ -130,7 +130,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	viewMode = true;
 	takePicture = false;
 	selectingMode = false;
-	traditionMode = false;
+	traditionMode = true;
 	newChange = false;
 	viewingID = 0;
 	humanDisplayMode = false;
