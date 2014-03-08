@@ -42,6 +42,8 @@ protected:
 	virtual void getCalibrationCenter();
 	virtual void scaleCalibration();//only for calibration obj
 	virtual void getCrossVector();
+	void debugDisplay();
+	void debugKey(unsigned char key, int x, int y);
 	void rotate(float degree,pointf &test,pointf c);
 
 
@@ -97,7 +99,8 @@ private:
 	int viewingID;
 	int *trackingID;//for skeleton
 	int userDeviceSwitcher;
-
+	int debugDriftNormal;
+	bool debugFullNormalMode;
 
 	openni::VideoFrameRef snapDepthFrame[MAX_DEVICE],snapColorFrame[MAX_DEVICE];
 	float nowX,nowY,nowZ;
@@ -110,6 +113,9 @@ private:
 	int frameCounter;
 	bool rotationMode;
 	bool traditionMode;
+	bool debugMode;
+	bool preDebugMode;
+
 
 	pointf *translateT;
 	vector *realTranslate;

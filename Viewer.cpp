@@ -71,6 +71,11 @@ void SampleViewer::glutIdle()
 
 void SampleViewer::glutDisplay()
 {
+	if(ms_self->debugMode)
+	{
+		SampleViewer::ms_self->debugDisplay();
+		return;
+	}
 	if(ms_self->humanDisplayMode)
 	{
 		SampleViewer::ms_self->humanDisplay();
@@ -85,7 +90,10 @@ void SampleViewer::glutDisplay()
 }
 void SampleViewer::glutKeyboard(unsigned char key, int x, int y)
 {
-	SampleViewer::ms_self->OnKey(key, x, y);
+	if(SampleViewer::ms_self->debugMode)
+		SampleViewer::ms_self->debugKey(key,x,y);
+	else
+		SampleViewer::ms_self->OnKey(key, x, y);
 }
 void SampleViewer::glutMouse(int button,int state,int x,int y)
 {
@@ -144,6 +152,8 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	nowColor = 0;
 	trackingID = new int[MAX_DEVICE];
 	userDeviceSwitcher = 0;
+	debugMode = false;
+	preDebugMode = false;
 
 	torso = new pointf[MAX_DEVICE];
 	skeletonCaptured = false;
@@ -160,7 +170,8 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	}
 	humanCenter = new pointf[MAX_DEVICE];
 	volume = new voxel[VOLUME_X*VOLUME_Y];
-
+	debugDriftNormal = 0;
+	debugFullNormalMode = false;
 }
 SampleViewer::~SampleViewer()
 {
@@ -1842,6 +1853,21 @@ void SampleViewer::humanDisplay()
 		}
 
 	}
+	if(preDebugMode)
+	{
+		for (int y = 0; y < DEPTH_HEIGHT; ++y)
+		{
+			for (int x = 0; x < DEPTH_WIDTH; ++x)
+			{
+				int index = y*DEPTH_WIDTH+x;
+				pointCloud[0][index].copyFrom(basePointCloud[index]);
+			}
+		}
+		calculateNormalMap(pointCloud[0]);
+
+		debugMode = true;
+		return;
+	}
 	if(traditionMode)
 	{
 		pointf translateTH[MAX_DEVICE];
@@ -2084,4 +2110,82 @@ void SampleViewer::humanDisplay()
 	// Swap the OpenGL display buffers
 	glutSwapBuffers();
 	//system("pause");
+}
+void drawNormal(pointf &p)
+{
+
+	glBegin(GL_LINE);
+	glColor3f(1,0,0);
+	glVertex3f(p.x,p.y,p.z);
+	glVertex3f(p.x+p.normal.x,p.y+p.normal.y,p.z+p.normal.z);
+	glEnd();
+}
+void SampleViewer::debugDisplay()
+{
+	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	if(viewMode)
+		gluPerspective( /* field of view in degree */ View_Distance,
+		/* aspect ratio */ 1.0,
+		/* Z near */ 1, /* Z far */ 10000);
+	else
+		glOrtho(-80,80,-60,60,0,10000);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(0 ,0 ,0,  /* eye is at () */
+		0.0,0 , 1,      /* center is at (0,0,0) */
+		0.0, 1.0,0.0); 
+	for(int i=0;i<deviceNum;i++)
+	{
+		glBegin(GL_POINTS);
+		glPushMatrix();
+		glTranslatef(humanCenter[i].x,humanCenter[i].y,humanCenter[i].z);
+		glRotatef(theta[i],0,1,0);
+		glTranslatef(-humanCenter[i].x,-humanCenter[i].y,-humanCenter[i].z);
+		glScalef(1/trueFactor,1/trueFactor,1/trueFactor);
+		for(int j=0;j<DEPTH_HEIGHT*DEPTH_WIDTH;j++)
+		{
+			glColor3f(pointCloud[i][j].color.r,pointCloud[i][j].color.g,pointCloud[i][j].color.b);
+			glVertex3f(pointCloud[i][j].x,pointCloud[i][j].y,pointCloud[i][j].z);
+			if(debugFullNormalMode&&j%3==0&&(j/DEPTH_WIDTH)&3==0)
+				drawNormal(pointCloud[i][j]);
+		}
+		if(!debugFullNormalMode)
+			drawNormal(pointCloud[i][debugDriftNormal]);
+		glScalef(trueFactor,trueFactor,trueFactor);
+		glPopMatrix();
+		glEnd();
+	}
+}
+void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
+{
+	switch (key)
+	{
+	case 'c':
+		if(viewMode)
+			viewMode=false;
+		else
+			viewMode=true;
+		break;
+	case 'w':
+		if(debugDriftNormal-DEPTH_WIDTH>=0)
+			debugDriftNormal-=DEPTH_WIDTH;
+		break;
+	case 's':
+		if(debugDriftNormal+DEPTH_WIDTH<DEPTH_WIDTH*DEPTH_HEIGHT)
+			debugDriftNormal+=DEPTH_WIDTH;
+		break;
+	case 'a':
+		if(debugDriftNormal-1>0)
+			debugDriftNormal-=1;
+		break;
+	case 'd':
+		if(debugDriftNormal+1<DEPTH_WIDTH*DEPTH_HEIGHT)
+			debugDriftNormal+=1;
+		break;
+	case 'q':
+		debugMode = false;
+		break;
+	}
 }
