@@ -1245,6 +1245,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		if(!selectingMode&&humanDisplayMode)
 		{
 			translateX[1]+=-10;
+			//printf("aa\n");
 		}
 		else
 		{
@@ -1492,7 +1493,7 @@ void calculateNormalMap(pointf *pointCloud)
 
 int reference(int x,int y)
 {
-	int X=(x+2000)/8,Y=(y+1800)/6;
+	int X=(x+2000)/16,Y=(y+1800)/12;
 	if(X<0||X>=VOLUME_X||Y<0||Y>=VOLUME_Y)
 	{
 		printf("x=%d,y=%d\n",X,Y);
@@ -2058,6 +2059,7 @@ void SampleViewer::humanDisplay()
 	{
 		glBegin(GL_POINTS);  
 		glPushMatrix();
+		float basicDx = 0.2,basicDy = 0.2,basicDz = 1;
 		for(int i = 0;i<VOLUME_X*VOLUME_Y;i++)
 		{
 			if(volume[i].NA == false)
@@ -2066,6 +2068,12 @@ void SampleViewer::humanDisplay()
 					glColor3f(volume[i].pointList[j].color.r,volume[i].pointList[j].color.g,volume[i].pointList[j].color.b);
 					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
 
+					glVertex3f(volume[i].pointList[j].x/trueFactor+basicDx,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
+					glVertex3f(volume[i].pointList[j].x/trueFactor-basicDx,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor);
+					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor+basicDy,volume[i].pointList[j].z/trueFactor);
+					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor-basicDy,volume[i].pointList[j].z/trueFactor);
+					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor+basicDz);
+					glVertex3f(volume[i].pointList[j].x/trueFactor,volume[i].pointList[j].y/trueFactor,volume[i].pointList[j].z/trueFactor-basicDz);
 				}
 		}
 		glPopMatrix();
