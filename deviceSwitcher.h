@@ -7,7 +7,7 @@ public:
 	deviceSwitcher(int n)
 	{
 		maxState = n;
-		nowState = 0;
+		nowState = n;
 	}
 	void nextState()
 	{

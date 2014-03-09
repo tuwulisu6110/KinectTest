@@ -100,7 +100,7 @@ private:
 	int viewingID;
 	int *trackingID;//for skeleton
 	int userDeviceSwitcher;
-	int debugDriftNormal;
+	int *debugDriftNormal;
 	bool debugFullNormalMode;
 
 	openni::VideoFrameRef snapDepthFrame[MAX_DEVICE],snapColorFrame[MAX_DEVICE];

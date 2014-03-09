@@ -1856,12 +1856,26 @@ void SampleViewer::humanDisplay()
 			for (int x = 0; x < DEPTH_WIDTH; ++x)
 			{
 				int index = y*DEPTH_WIDTH+x;
-				pointCloud[0][index].copyFrom(basePointCloud[index]);
+				if(basePointCloud[index].type==0)
+					pointCloud[0][index].copyFrom(basePointCloud[index]);
+				else
+					pointCloud[0][index].type = -1;
+
+			}
+		}
+		debugDriftNormal = new int[deviceNum];
+		for(int i=0;i<deviceNum;i++)
+		{
+			for (debugDriftNormal[i] = 0; debugDriftNormal[i] < DEPTH_HEIGHT*DEPTH_WIDTH; debugDriftNormal[i]++)
+			{
+				if(pointCloud[i][debugDriftNormal[i]].type==0)
+					break;
+
 			}
 		}
 		calculateNormalMap(pointCloud[0]);
 		debugSwitcher = new deviceSwitcher(deviceNum);
-
+		
 		debugMode = true;
 		preDebugMode = false;
 		return;
@@ -2151,7 +2165,7 @@ void SampleViewer::debugDisplay()
 			}
 			glEnd();
 			if(!debugFullNormalMode)
-				drawNormal(pointCloud[i][debugDriftNormal]);
+				drawNormal(pointCloud[i][debugDriftNormal[i]]);
 			else
 				for(int j=0;j<DEPTH_HEIGHT*DEPTH_WIDTH;j++)
 				{
@@ -2178,28 +2192,81 @@ void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
 		newChange = true;
 		break;
 	case 'w':
-		if(debugDriftNormal-DEPTH_WIDTH>=0)
-			debugDriftNormal-=DEPTH_WIDTH;
+		for(int i=0;i<deviceNum;i++)
+		{
+			if(debugSwitcher->checkDeviceInUse(i))
+			{
+				do
+				{
+					if(debugDriftNormal[i]-DEPTH_WIDTH>=0)
+						debugDriftNormal[i]-=DEPTH_WIDTH;
+					else
+						break;
+				}while(pointCloud[i][debugDriftNormal[i]].type!=0);
+				printf("#%d[%d][%d].normal:  x:%f , y:%f , z:%f\n",i,debugDriftNormal[i]/DEPTH_WIDTH,debugDriftNormal[i]%DEPTH_WIDTH,pointCloud[i][debugDriftNormal[i]].normal.x,pointCloud[i][debugDriftNormal[i]].normal.y,pointCloud[i][debugDriftNormal[i]].normal.z);
+			}
+		}
+
 		newChange = true;
 		break;
 	case 's':
-		if(debugDriftNormal+DEPTH_WIDTH<DEPTH_WIDTH*DEPTH_HEIGHT)
-			debugDriftNormal+=DEPTH_WIDTH;
-		newChange = true;
-		break;
-	case 'a':
-		if(debugDriftNormal-1>0)
-			debugDriftNormal-=1;
+		for(int i=0;i<deviceNum;i++)
+		{
+			if(debugSwitcher->checkDeviceInUse(i))
+			{
+				do
+				{
+					if(debugDriftNormal[i]+DEPTH_WIDTH<DEPTH_WIDTH*DEPTH_HEIGHT)
+						debugDriftNormal[i]+=DEPTH_WIDTH;
+					else
+						break;
+				}while(pointCloud[i][debugDriftNormal[i]].type!=0);
+				printf("#%d[%d][%d].normal:  x:%f , y:%f , z:%f\n",i,debugDriftNormal[i]/DEPTH_WIDTH,debugDriftNormal[i]%DEPTH_WIDTH,pointCloud[i][debugDriftNormal[i]].normal.x,pointCloud[i][debugDriftNormal[i]].normal.y,pointCloud[i][debugDriftNormal[i]].normal.z);		
+			}
+		}
+
 		newChange = true;
 		break;
 	case 'd':
-		if(debugDriftNormal+1<DEPTH_WIDTH*DEPTH_HEIGHT)
-			debugDriftNormal+=1;
+		for(int i=0;i<deviceNum;i++)
+		{
+			if(debugSwitcher->checkDeviceInUse(i))
+			{
+				do
+				{
+					if(debugDriftNormal[i]-1>0)
+						debugDriftNormal[i]-=1;		
+					else
+						break;
+				}while(pointCloud[i][debugDriftNormal[i]].type!=0);
+				printf("#%d[%d][%d].normal:  x:%f , y:%f , z:%f\n",i,debugDriftNormal[i]/DEPTH_WIDTH,debugDriftNormal[i]%DEPTH_WIDTH,pointCloud[i][debugDriftNormal[i]].normal.x,pointCloud[i][debugDriftNormal[i]].normal.y,pointCloud[i][debugDriftNormal[i]].normal.z);		
+			}
+		}
+
+		newChange = true;
+		break;
+	case 'a':
+		for(int i=0;i<deviceNum;i++)
+		{
+			if(debugSwitcher->checkDeviceInUse(i))
+			{
+				do
+				{
+					if(debugDriftNormal[i]+1<DEPTH_WIDTH*DEPTH_HEIGHT)
+						debugDriftNormal[i]+=1;			
+					else
+						break;
+				}while(pointCloud[i][debugDriftNormal[i]].type!=0);
+				printf("#%d[%d][%d].normal:  x:%f , y:%f , z:%f\n",i,debugDriftNormal[i]/DEPTH_WIDTH,debugDriftNormal[i]%DEPTH_WIDTH,pointCloud[i][debugDriftNormal[i]].normal.x,pointCloud[i][debugDriftNormal[i]].normal.y,pointCloud[i][debugDriftNormal[i]].normal.z);		
+			}
+		}
+
 		newChange = true;
 		break;
 	case 'q':
 		debugMode = false;
 		delete debugSwitcher;
+		delete debugDriftNormal;
 		break;
 	case 'n':
 		if(debugFullNormalMode)
@@ -2217,7 +2284,9 @@ void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
 		newChange = true;
 		break;
 	case 'j':
-		int x,y;
+		int x,y,i;
+		printf("i:");
+		scanf("%d",&i);
 		printf("x:");
 		scanf("%d",&x);
 		printf("y:");
@@ -2227,7 +2296,7 @@ void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
 			printf("x : %d, y : %d\n",x,y);
 			break;
 		}
-		debugDriftNormal = y*DEPTH_WIDTH+x;
+		debugDriftNormal[i] = y*DEPTH_WIDTH+x;
 		newChange = true;
 		break;
 	}
