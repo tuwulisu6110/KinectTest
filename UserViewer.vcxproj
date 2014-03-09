@@ -183,6 +183,7 @@
     <ClCompile Include="Viewer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="deviceSwitcher.h" />
     <ClInclude Include="mcolor.h" />
     <ClInclude Include="pointf.h" />
     <ClInclude Include="vector.h" />

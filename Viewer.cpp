@@ -62,7 +62,7 @@ void SampleViewer::glutIdle()
 	{
 		ms_self->snapShot();
 	}
-	if(!ms_self->selectingMode||ms_self->newChange)
+	if(!ms_self->selectingMode||ms_self->newChange||!ms_self->debugMode)
 	{
 		glutPostRedisplay();
 		ms_self->newChange = false;
@@ -135,17 +135,16 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 		translateT[i].setToZero();
 	}
 	soraMode = false;
-	viewMode = true;
+	viewMode = false;
 	takePicture = false;
 	selectingMode = false;
 	traditionMode = true;
 	newChange = false;
 	viewingID = 0;
 	humanDisplayMode = false;
-	scaleMode = true;
 	denseMode = true;
 	rotationMode = false;
-	shiftMode = false;
+	shiftMode = true;
 	nowX=0;
 	nowY=0;
 	nowDevice = 0;
@@ -1315,7 +1314,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		else
 			soraMode=true;
 		break;
-	case 'c':
+	case 'v':
 		if(viewMode)
 			viewMode=false;
 		else
@@ -1326,8 +1325,11 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		g_drawBoundingBox = !g_drawBoundingBox;
 		break;
 	case 'b':
-		// Draw background?
-		g_drawBackground = !g_drawBackground;
+		if(humanDisplayMode)
+		{
+			if(!preDebugMode)
+				preDebugMode = true;
+		}
 		break;
 	case 'f':
 		// Draw frame ID
@@ -1397,12 +1399,6 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			denseMode = false;
 		else
 			denseMode = true;
-		break;
-	case 'v':
-		if(scaleMode)
-			scaleMode = false;
-		else
-			scaleMode = true;
 		break;
 	case 'h':
 		if(humanDisplayMode)
@@ -1864,8 +1860,10 @@ void SampleViewer::humanDisplay()
 			}
 		}
 		calculateNormalMap(pointCloud[0]);
+		debugSwitcher = new deviceSwitcher(deviceNum);
 
 		debugMode = true;
+		preDebugMode = false;
 		return;
 	}
 	if(traditionMode)
@@ -1967,8 +1965,6 @@ void SampleViewer::humanDisplay()
 								glColor3f(pImage->r/225.0,pImage->g/225.0,pImage->b/225.0);
 								//int nHistValue = m_pDepthHist[*pDepth];
 								double wariai = (pDepth[0]/zFactor) / meanZ[BASE];
-								if(scaleMode==false)
-									wariai = 1;
 								double realX,realY;
 								realX = (wariai * (x-centerX))+centerX;
 								realY = (wariai * (y-centerY))+centerY;
@@ -2113,11 +2109,11 @@ void SampleViewer::humanDisplay()
 }
 void drawNormal(pointf &p)
 {
-
-	glBegin(GL_LINE);
+	int be = 25;
 	glColor3f(1,0,0);
-	glVertex3f(p.x,p.y,p.z);
-	glVertex3f(p.x+p.normal.x,p.y+p.normal.y,p.z+p.normal.z);
+	glBegin(GL_LINES);
+	glVertex3f(p.x/trueFactor,p.y/trueFactor,p.z/trueFactor);
+	glVertex3f((p.x+p.normal.x*be)/trueFactor,(p.y+p.normal.y*be)/trueFactor,(p.z+p.normal.z*be)/trueFactor);
 	glEnd();
 }
 void SampleViewer::debugDisplay()
@@ -2138,54 +2134,101 @@ void SampleViewer::debugDisplay()
 		0.0, 1.0,0.0); 
 	for(int i=0;i<deviceNum;i++)
 	{
-		glBegin(GL_POINTS);
-		glPushMatrix();
-		glTranslatef(humanCenter[i].x,humanCenter[i].y,humanCenter[i].z);
-		glRotatef(theta[i],0,1,0);
-		glTranslatef(-humanCenter[i].x,-humanCenter[i].y,-humanCenter[i].z);
-		glScalef(1/trueFactor,1/trueFactor,1/trueFactor);
-		for(int j=0;j<DEPTH_HEIGHT*DEPTH_WIDTH;j++)
+		if(debugSwitcher->checkDeviceInUse(i))
 		{
-			glColor3f(pointCloud[i][j].color.r,pointCloud[i][j].color.g,pointCloud[i][j].color.b);
-			glVertex3f(pointCloud[i][j].x,pointCloud[i][j].y,pointCloud[i][j].z);
-			if(debugFullNormalMode&&j%3==0&&(j/DEPTH_WIDTH)&3==0)
-				drawNormal(pointCloud[i][j]);
+			
+			glPushMatrix();
+			glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
+			glRotatef(theta[i],0,1,0);
+			glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
+			//glScalef(1/trueFactor,1/trueFactor,1/trueFactor);
+			glBegin(GL_POINTS);
+			for(int j=0;j<DEPTH_HEIGHT*DEPTH_WIDTH;j++)
+			{
+				glColor3f(pointCloud[i][j].color.r,pointCloud[i][j].color.g,pointCloud[i][j].color.b);
+				glVertex3f(pointCloud[i][j].x/trueFactor,pointCloud[i][j].y/trueFactor,pointCloud[i][j].z/trueFactor);
+
+			}
+			glEnd();
+			if(!debugFullNormalMode)
+				drawNormal(pointCloud[i][debugDriftNormal]);
+			else
+				for(int j=0;j<DEPTH_HEIGHT*DEPTH_WIDTH;j++)
+				{
+					if(j%3==0&&(j/DEPTH_WIDTH)%3==0)
+						drawNormal(pointCloud[i][j]);
+				}
+
+			//glScalef(trueFactor,trueFactor,trueFactor);
+			glPopMatrix();
+			
 		}
-		if(!debugFullNormalMode)
-			drawNormal(pointCloud[i][debugDriftNormal]);
-		glScalef(trueFactor,trueFactor,trueFactor);
-		glPopMatrix();
-		glEnd();
 	}
+	glutSwapBuffers();
 }
 void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
 {
 	switch (key)
 	{
-	case 'c':
+	case 'v':
 		if(viewMode)
 			viewMode=false;
 		else
 			viewMode=true;
+		newChange = true;
 		break;
 	case 'w':
 		if(debugDriftNormal-DEPTH_WIDTH>=0)
 			debugDriftNormal-=DEPTH_WIDTH;
+		newChange = true;
 		break;
 	case 's':
 		if(debugDriftNormal+DEPTH_WIDTH<DEPTH_WIDTH*DEPTH_HEIGHT)
 			debugDriftNormal+=DEPTH_WIDTH;
+		newChange = true;
 		break;
 	case 'a':
 		if(debugDriftNormal-1>0)
 			debugDriftNormal-=1;
+		newChange = true;
 		break;
 	case 'd':
 		if(debugDriftNormal+1<DEPTH_WIDTH*DEPTH_HEIGHT)
 			debugDriftNormal+=1;
+		newChange = true;
 		break;
 	case 'q':
 		debugMode = false;
+		delete debugSwitcher;
+		break;
+	case 'n':
+		if(debugFullNormalMode)
+			debugFullNormalMode = false;
+		else
+			debugFullNormalMode = true;
+		newChange = true;
+		break;
+	case 'r':
+		debugSwitcher->nextState();
+		newChange = true;
+		break;
+	case 'f':
+		debugSwitcher->prevState();
+		newChange = true;
+		break;
+	case 'j':
+		int x,y;
+		printf("x:");
+		scanf("%d",&x);
+		printf("y:");
+		scanf("%d",&y);
+		if(x>=DEPTH_WIDTH||x<0||y>DEPTH_HEIGHT||y<0)
+		{
+			printf("x : %d, y : %d\n",x,y);
+			break;
+		}
+		debugDriftNormal = y*DEPTH_WIDTH+x;
+		newChange = true;
 		break;
 	}
 }

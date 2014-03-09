@@ -41,5 +41,8 @@
     <ClInclude Include="mcolor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="deviceSwitcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

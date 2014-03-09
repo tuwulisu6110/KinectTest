@@ -15,6 +15,7 @@
 #include"pointf.h"
 #include"voxel.h"
 #include"mcolor.h"
+#include"deviceSwitcher.h"
 class SampleViewer
 {
 public:
@@ -107,7 +108,6 @@ private:
 	int nowDevice;
 	int nowColor;
 	bool humanDisplayMode;
-	bool scaleMode;
 	bool denseMode;
 	bool skeletonCaptured;
 	int frameCounter;
@@ -126,6 +126,7 @@ private:
 	pointf *basePointCloud;
 	pointf *humanCenter;
 	voxel *volume;
+	deviceSwitcher *debugSwitcher;
 };
 
 
