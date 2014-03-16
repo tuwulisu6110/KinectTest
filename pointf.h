@@ -53,9 +53,18 @@ public:
 		return sqrt((x-p2.x)*(x-p2.x)+(y-p2.y)*(y-p2.y)+(z-p2.z)*(z-p2.z));
 	}
 
+
 	void print()
 	{
 		printf("x = %f , y = %f , z = %f\n",x,y,z);
+	}
+
+	void accumulate(pointf f)
+	{
+		x+=f.x;
+		y+=f.y;
+		z+=f.z;
+		count++;
 	}
 
 	void DoAvg()
