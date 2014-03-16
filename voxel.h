@@ -39,7 +39,7 @@ public:
 			NA = false;
 		}
 		//for shih
-		if(((int)t.x)%16<4||((int)t.x)%16>11||((int)t.y)%12<2||((int)t.y)%12>9)
+		if((abs((int)t.x))%16<4||(abs((int)t.x))%16>11||(abs((int)t.y))%12<2||(abs((int)t.y))%12>9)
 			return;
 		//for shih end
 		if(numOfPoints >= listSize)
@@ -126,7 +126,7 @@ public:
 	{
 		if(NA)
 		{
-			listSize = 100;
+			listSize = 200;
 			pointList = new pointf[listSize];
 			NA = false;
 		}
@@ -144,7 +144,7 @@ public:
 			for(int i=0;i<numOfPoints;i++)
 			{
 				double dx = abs(pointList[i].x-t.x),dy = abs(pointList[i].y-t.y);
-				if(dx<1&&dy<1)
+				if(dx<2&&dy<1.5)
 				{
 					minI = i;
 					if(t.z<pointList[i].z)

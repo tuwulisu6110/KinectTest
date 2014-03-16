@@ -126,7 +126,7 @@ private:
 	pointf *basePointCloud;
 	pointf *humanCenter;
 	voxel *volume;
-	voxel *volumeZ;
+	voxel **volumeZ;
 	deviceSwitcher *debugSwitcher;
 };
 

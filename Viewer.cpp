@@ -62,7 +62,7 @@ void SampleViewer::glutIdle()
 	{
 		ms_self->snapShot();
 	}
-	if(!ms_self->selectingMode||ms_self->newChange||!ms_self->debugMode)
+	if((!ms_self->selectingMode&&!ms_self->debugMode)||ms_self->newChange)
 	{
 		glutPostRedisplay();
 		ms_self->newChange = false;
@@ -161,15 +161,17 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	calibrationRef = new pointf*[MAX_DEVICE];
 	pointCloud = new pointf*[MAX_DEVICE];
 	basePointCloud = new pointf[DEPTH_WIDTH*DEPTH_HEIGHT];
+	volumeZ = new voxel*[MAX_DEVICE];
 	for(int i=0;i<MAX_DEVICE;i++)
 	{
 		calibrationRef[i] = new pointf[4];
 		trackingID[i]=0;
 		pointCloud[i] = new pointf[DEPTH_WIDTH*DEPTH_HEIGHT];
+		volumeZ[i] = new voxel[VOLUME_X*VOLUME_Y];
 	}
 	humanCenter = new pointf[MAX_DEVICE];
 	volume = new voxel[VOLUME_X*VOLUME_Y];
-	volumeZ = new voxel[VOLUME_X*VOLUME_Y];
+	 
 	debugDriftNormal = 0;
 	debugFullNormalMode = false;
 }
@@ -191,7 +193,11 @@ SampleViewer::~SampleViewer()
 	delete[] vectorRY;
 	delete[] vectorBG;
 	for(int i=0;i<deviceNum;i++)
+	{
 		delete calibrationRef[i];
+		delete [] volumeZ[i];
+	}
+	delete[]  volumeZ;
 	delete calibrationRef;
 	delete torso;
 	ms_self = NULL;
@@ -199,7 +205,7 @@ SampleViewer::~SampleViewer()
 	delete realTranslate;
 	delete humanCenter;
 	delete [] volume;
-	delete [] volumeZ;
+	
 }
 
 void SampleViewer::Finalize()
@@ -1007,7 +1013,7 @@ void SampleViewer::MouseMotion(int x,int y)
 			theta[0] = thetaKeep[0] + x - clickX ;
 			theta[1] = thetaKeep[1] + x - clickX ;
 		}
-
+		newChange = true;
 	}
 }
 void SampleViewer::SelectingMouseEvent(int button,int state,int xx,int yy)
@@ -1531,6 +1537,8 @@ void SampleViewer::humanDisplay()
 	for(int i=0;i<VOLUME_X*VOLUME_Y;i++)
 	{
 		volume[i].reset();
+		for(int j=0;j<deviceNum;j++)
+			volumeZ[j][i].reset();
 	}
 	
 
@@ -1693,7 +1701,7 @@ void SampleViewer::humanDisplay()
 						{
 							
 
-							m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realX,&realY);
+							m_pUserTracker[BASE]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realX,&realY);
 							if(i==BASE)
 							{
 								basePointCloud[index].x = realX;
@@ -1785,32 +1793,31 @@ void SampleViewer::humanDisplay()
 					
 				}
 			}
+			/*
 			//z Buffer
 			for (int y = 0; y < DEPTH_HEIGHT*DEPTH_WIDTH; ++y)
-				volumeZ[reference(pointCloud[BASE][y].x,pointCloud[BASE][y].y)].addPointZ(pointCloud[BASE][y],true);
+				volumeZ[BASE][reference(pointCloud[BASE][y].x,pointCloud[BASE][y].y)].addPointZ(pointCloud[BASE][y],true);
 			pointf beginZ,endZ;
 			beginZ.setToZero();
 			endZ.setToZero();
 			for (int y = 0; y < DEPTH_HEIGHT*DEPTH_WIDTH; ++y)
-				if(!volumeZ[y].NA)
+				if(!volumeZ[BASE][y].NA)
 				{
-					for(int k=0;k<volumeZ[y].numOfPoints;k++)
-						beginZ.accumulate(volumeZ[y].pointList[k]);
-					volumeZ[y].reset();
+					for(int k=0;k<volumeZ[BASE][y].numOfPoints;k++)
+						endZ.accumulate(volumeZ[BASE][y].pointList[k]);
 				}
 			for (int y = 0; y < DEPTH_HEIGHT*DEPTH_WIDTH; ++y)
-				volumeZ[reference(pointCloud[i][y].x,pointCloud[i][y].y)].addPointZ(pointCloud[i][y],false);
+				volumeZ[i][reference(pointCloud[i][y].x,pointCloud[i][y].y)].addPointZ(pointCloud[i][y],false);
 			for (int y = 0; y < DEPTH_HEIGHT*DEPTH_WIDTH; ++y)
-				if(!volumeZ[y].NA)
+				if(!volumeZ[i][y].NA)
 				{
-					for(int k=0;k<volumeZ[y].numOfPoints;k++)
-						endZ.accumulate(volumeZ[y].pointList[k]);
-					volumeZ[y].reset();
+					for(int k=0;k<volumeZ[i][y].numOfPoints;k++)
+						beginZ.accumulate(volumeZ[i][y].pointList[k]);
 				}
 			beginZ.DoAvg();
 			endZ.DoAvg();
 			//z Buffer end
-
+			*/
 			// normal map 
 			calculateNormalMap(pointCloud[i]);
 			calculateNormalMap(pointCloud[BASE]);
@@ -1825,7 +1832,7 @@ void SampleViewer::humanDisplay()
 					
 					if(pointCloud[i][index].type==0)
 					{
-						if(pointCloud[i][index].normal.z>0)
+						if(pointCloud[i][index].normal.z>0||1)
 						{
 							float weight = 1;//pointCloud[i][index].normal.z;
 							begin.x+=weight*pointCloud[i][index].x;
@@ -1841,7 +1848,7 @@ void SampleViewer::humanDisplay()
 					}
 					if(pointCloud[BASE][index].type==0)
 					{
-						if(pointCloud[BASE][index].normal.z<0)
+						if(pointCloud[BASE][index].normal.z<0||1)
 						{
 							float weight = 1;//pointCloud[BASE][index].normal.z;
 							end.x+=weight*basePointCloud[index].x;
@@ -1860,8 +1867,8 @@ void SampleViewer::humanDisplay()
 			begin.DoAvg();
 			end.DoAvg();
 			//normal map end
-
-			realTranslate[i].doVector(beginZ,endZ);
+			
+			realTranslate[i].doVector(begin,end);
 
 
 			if(shiftMode)
