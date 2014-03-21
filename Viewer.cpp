@@ -1584,7 +1584,7 @@ void SampleViewer::humanDisplay()
 			const openni::DepthPixel* pDepthRow = (const openni::DepthPixel*)depthFrame[i].getData();
 			const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)colorFrame[i].getData();
 			int rowSize = depthFrame[i].getStrideInBytes() / sizeof(openni::DepthPixel);
-
+			
 			if(trackingID[i] >= users.getSize())
 				trackingID[i] = 0;
 
@@ -2026,15 +2026,33 @@ void SampleViewer::humanDisplay()
 								float realx,realy;
 								//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
 								//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
+								//left
+								int leftShift = -1,rightShift = 1;
 								if(i==BASE)
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
-										glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+										glVertex3f(basePointCloud[index].x/trueFactor+leftShift,basePointCloud[index].y/trueFactor+leftShift,basePointCloud[index].z/trueFactor+leftShift);
 								}
 								else
 								{
 									//if(pointCloud[i][index].normal.z>0.6)
-										glVertex3f((pointCloud[i][index].x)/trueFactor,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
+										glVertex3f((pointCloud[i][index].x)/trueFactor+leftShift,(pointCloud[i][index].y)/trueFactor+leftShift,(pointCloud[i][index].z)/trueFactor+leftShift);
+								}
+								glPushMatrix();
+								glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
+								glRotatef(-rotateR[i].y,0,1,0);
+								glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
+								glPopMatrix();
+								//right
+								if(i==BASE)
+								{
+									//if(pointCloud[BASE][index].normal.z>0)
+										glVertex3f(basePointCloud[index].x/trueFactor+rightShift,basePointCloud[index].y/trueFactor+rightShift,basePointCloud[index].z/trueFactor+rightShift);
+								}
+								else
+								{
+									//if(pointCloud[i][index].normal.z>0.6)
+										glVertex3f((pointCloud[i][index].x)/trueFactor+rightShift,(pointCloud[i][index].y)/trueFactor+rightShift,(pointCloud[i][index].z)/trueFactor+rightShift);
 								}
 								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
 								/*if(denseMode)
