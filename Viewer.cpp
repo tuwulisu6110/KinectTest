@@ -119,6 +119,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	thetaKeep = new float[MAX_DEVICE];
 	translateX = new float[MAX_DEVICE];
 	translateY = new float[MAX_DEVICE];
+	translateZ = new float[MAX_DEVICE];
 	translateT = new pointf[MAX_DEVICE];
 	realTranslate = new vector[MAX_DEVICE];
 	rotateR = new pointf[MAX_DEVICE];
@@ -130,6 +131,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 		thetaKeep[i]=0;
 		translateX[i] = 0;
 		translateY[i] = 0;
+		translateZ[i] = 0;
 		calibrationCenter[i].setToZero();
 		rotateR[i].setToZero();
 		translateT[i].setToZero();
@@ -1259,6 +1261,18 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 27:
 		Finalize();
 		exit (1);
+	case 'r':
+		if(humanDisplayMode)
+		{
+			translateZ[1]+=10;
+		}
+		break;
+	case 'f':
+		if(humanDisplayMode)
+		{
+			translateZ[1]+=-10;
+		}
+		break;
 	case 'a':
 		if(!selectingMode&&humanDisplayMode)
 		{
@@ -1302,7 +1316,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 'S':
 		file3.open("translate.txt", std::fstream::out | std::fstream::trunc);
-		file3<<translateX[1]<<" "<<translateY[1]<<std::endl;
+		file3<<translateX[1]<<" "<<translateY[1]<<" "<<translateZ[1]<<std::endl;
 		file3.close();
 		break;
 	case 'w':
@@ -1338,10 +1352,6 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			if(!preDebugMode)
 				preDebugMode = true;
 		}
-		break;
-	case 'f':
-		// Draw frame ID
-		g_drawFrameId = !g_drawFrameId;
 		break;
 	case 'q':
 		viewingID++;
@@ -1426,12 +1436,6 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			printf("now userDeviceSwitcher = %d\n",userDeviceSwitcher);
 		}
 		break;
-	case 'r':
-		if(rotationMode)
-			rotationMode = false;
-		else
-			rotationMode = true;
-		break;
 	case 'l':
 		file.open("data.txt",std::fstream::in);
 		if(!file.is_open())
@@ -1457,8 +1461,8 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			break;
 		}
 
-		file2>>translateX[1]>>translateY[1];
-		printf("translate x : %f,translate y : %f\n",translateX[1],translateY[1]);
+		file2>>translateX[1]>>translateY[1]>>translateZ[1];
+		printf("translate x : %f,translate y : %f, translate z: %d\n",translateX[1],translateY[1],translateZ[1]);
 		file2.close();
 		break;	
 	case 't':
@@ -1881,7 +1885,7 @@ void SampleViewer::humanDisplay()
 						{
 							pointCloud[i][index].x += realTranslate[i].x+translateX[i];//+translateT[i].x;
 							pointCloud[i][index].y += realTranslate[i].y+translateY[i];//+translateT[i].y;
-							pointCloud[i][index].z += realTranslate[i].z;//+translateT[i].z;
+							pointCloud[i][index].z += realTranslate[i].z+translateZ[i];//+translateT[i].z;
 							int ref = reference(pointCloud[i][index].x,pointCloud[i][index].y);
 							volume[ref].addPointShih(pointCloud[i][index]);
 						}
@@ -2027,32 +2031,30 @@ void SampleViewer::humanDisplay()
 								//m_pUserTracker[i]->convertDepthCoordinatesToJoint(x,y,pDepth[0],&realx,&realy);
 								//glVertex3f(realx/trueFactor,realy/trueFactor,pDepth[0]/trueFactor);
 								//left
-								int leftShift = -1,rightShift = 1;
+								int leftShift = -10,rightShift = 40;
 								if(i==BASE)
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
-										glVertex3f(basePointCloud[index].x/trueFactor+leftShift,basePointCloud[index].y/trueFactor+leftShift,basePointCloud[index].z/trueFactor+leftShift);
+										glVertex3f(basePointCloud[index].x/trueFactor+leftShift,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
 								else
 								{
 									//if(pointCloud[i][index].normal.z>0.6)
-										glVertex3f((pointCloud[i][index].x)/trueFactor+leftShift,(pointCloud[i][index].y)/trueFactor+leftShift,(pointCloud[i][index].z)/trueFactor+leftShift);
+										glVertex3f((pointCloud[i][index].x)/trueFactor+leftShift,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
-								glPushMatrix();
-								glTranslatef(humanCenter[i].x/trueFactor,humanCenter[i].y/trueFactor,humanCenter[i].z/trueFactor);
-								glRotatef(-rotateR[i].y,0,1,0);
-								glTranslatef(-humanCenter[i].x/trueFactor,-humanCenter[i].y/trueFactor,-humanCenter[i].z/trueFactor);
-								glPopMatrix();
+								
 								//right
 								if(i==BASE)
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
-										glVertex3f(basePointCloud[index].x/trueFactor+rightShift,basePointCloud[index].y/trueFactor+rightShift,basePointCloud[index].z/trueFactor+rightShift);
+									rotate(-1*rotateR[1].y,basePointCloud[index],humanCenter[BASE]);
+										glVertex3f(basePointCloud[index].x/trueFactor+rightShift,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
 								else
 								{
 									//if(pointCloud[i][index].normal.z>0.6)
-										glVertex3f((pointCloud[i][index].x)/trueFactor+rightShift,(pointCloud[i][index].y)/trueFactor+rightShift,(pointCloud[i][index].z)/trueFactor+rightShift);
+									rotate(-1*rotateR[i].y,pointCloud[i][index],humanCenter[i]);
+										glVertex3f((pointCloud[i][index].x)/trueFactor+rightShift,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
 								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
 								/*if(denseMode)
@@ -2335,12 +2337,18 @@ void SampleViewer::debugKey(unsigned char key, int /*x*/, int /*y*/)
 		newChange = true;
 		break;
 	case 'r':
-		debugSwitcher->nextState();
-		newChange = true;
+		if(debugMode)
+		{
+			debugSwitcher->nextState();
+			newChange = true;
+		}
 		break;
 	case 'f':
-		debugSwitcher->prevState();
-		newChange = true;
+		if(debugMode)
+		{
+			debugSwitcher->prevState();
+			newChange = true;
+		}
 		break;
 	case 'j':
 		int x,y,i;

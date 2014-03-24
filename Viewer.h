@@ -94,6 +94,7 @@ private:
 	float* thetaKeep;
 	float* translateX;
 	float* translateY;
+	float* translateZ;
 	bool soraMode;
 	bool viewMode;
 	bool shiftMode;
