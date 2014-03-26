@@ -2056,7 +2056,7 @@ void SampleViewer::humanDisplay()
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
 									
-									rotate(theta[i],basePointCloud[index],humanCenter[i]);
+									rotate(theta[i],basePointCloud[index],humanCenter[1]);
 
 									glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
@@ -2064,7 +2064,7 @@ void SampleViewer::humanDisplay()
 								{
 									//if(pointCloud[i][index].normal.z>0.6)
 
-									rotate(theta[i],pointCloud[i][index],humanCenter[i]);
+									rotate(theta[i],pointCloud[i][index],humanCenter[1]);
 
 									glVertex3f((pointCloud[i][index].x)/trueFactor,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
