@@ -142,7 +142,7 @@ SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
 	selectingMode = false;
 	traditionMode = true;
 	newChange = false;
-	viewingID = 0;
+	viewingID = 1;
 	humanDisplayMode = false;
 	denseMode = true;
 	rotationMode = false;
@@ -678,7 +678,7 @@ void SampleViewer::snapDisplay()
 		0.0,0 , 1,      /* center is at (0,0,0) */
 		0.0, -1.0,0.0); 
 	float factor[3] = {1, 1, 1};
-	float xShifter[3] = {-30,30,40};
+	float xShifter[3] = {-60,0,60};
 	// check if we need to draw depth frame to texture
 	for(int i=0;i<deviceNum;i++)
 	{
@@ -887,7 +887,7 @@ void SampleViewer::Display()
 
 
 	float factor[3] = {1, 1, 1};
-	float xShifter[3] = {-30,30,40};
+	float xShifter[3] = {-60,0,60};
 	// check if we need to draw depth frame to texture
 	for(int i=0;i<deviceNum;i++)
 	{
@@ -1261,22 +1261,32 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 27:
 		Finalize();
 		exit (1);
+	case 'E':
+		for(int i=0;i<deviceNum;i++)
+			theta[i]+=15;
+		break;
+	case 'e':
+		if(rotationMode)
+			rotationMode = false;
+		else 
+			rotationMode = true;
+		break;
 	case 'r':
 		if(humanDisplayMode)
 		{
-			translateZ[1]+=10;
+			translateZ[viewingID]+=10;
 		}
 		break;
 	case 'f':
 		if(humanDisplayMode)
 		{
-			translateZ[1]+=-10;
+			translateZ[viewingID]+=-10;
 		}
 		break;
 	case 'a':
 		if(!selectingMode&&humanDisplayMode)
 		{
-			translateX[1]+=-10;
+			translateX[viewingID]+=-10;
 			//printf("aa\n");
 		}
 		else
@@ -1290,7 +1300,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 'd':
 		if(!selectingMode&&humanDisplayMode)
 		{
-			translateX[1]+=10;
+			translateX[viewingID]+=10;
 		}
 		else
 		{
@@ -1303,7 +1313,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 's':
 		if(!selectingMode&&humanDisplayMode)
 		{
-			translateY[1]+=10;
+			translateY[viewingID]+=10;
 		}
 		else
 		{
@@ -1316,7 +1326,9 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 'S':
 		file3.open("translate.txt", std::fstream::out | std::fstream::trunc);
-		file3<<translateX[1]<<" "<<translateY[1]<<" "<<translateZ[1]<<std::endl;
+		for(int i=1;i<deviceNum;i++)
+			file3<<translateX[i]<<" "<<translateY[i]<<" "<<translateZ[i]<<std::endl;
+		printf("translate saved\n");
 		file3.close();
 		break;
 	case 'w':
@@ -1356,7 +1368,8 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 'q':
 		viewingID++;
 		if(viewingID>=deviceNum)
-			viewingID=0;
+			viewingID=1;
+		printf("viewingID : %d\n",viewingID);
 		break;
 
 	case 'y':
@@ -1460,9 +1473,11 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			printf("ERROR in load data.txt\n");
 			break;
 		}
-
-		file2>>translateX[1]>>translateY[1]>>translateZ[1];
-		printf("translate x : %f,translate y : %f, translate z: %d\n",translateX[1],translateY[1],translateZ[1]);
+		for(int i=1;i<deviceNum;i++)
+		{
+			file2>>translateX[i]>>translateY[i]>>translateZ[i];
+			printf("translate x : %f,translate y : %f, translate z: %f\n",translateX[i],translateY[i],translateZ[i]);
+		}
 		file2.close();
 		break;	
 	case 't':
@@ -1978,6 +1993,11 @@ void SampleViewer::humanDisplay()
 			T.z = torso[BASE].z - torso[i].z;*/
 			//glTranslatef(T.x,T.y,T.z);
 			//glTranslatef(translateTH[i].x/10,translateTH[i].y/10,translateTH[i].z);
+				if(rotationMode)
+				{
+					theta[i] += 0.3;
+					printf("%f\n",theta[i]);
+				}
 				pointf t;
 				skeletonCaptured = false;
 				if(skeletonCaptured)
@@ -2035,16 +2055,22 @@ void SampleViewer::humanDisplay()
 								if(i==BASE)
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
-										glVertex3f(basePointCloud[index].x/trueFactor+leftShift,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
+									
+									rotate(theta[i],basePointCloud[index],humanCenter[i]);
+
+									glVertex3f(basePointCloud[index].x/trueFactor,basePointCloud[index].y/trueFactor,basePointCloud[index].z/trueFactor);
 								}
 								else
 								{
 									//if(pointCloud[i][index].normal.z>0.6)
-										glVertex3f((pointCloud[i][index].x)/trueFactor+leftShift,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
+
+									rotate(theta[i],pointCloud[i][index],humanCenter[i]);
+
+									glVertex3f((pointCloud[i][index].x)/trueFactor,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
 								
 								//right
-								if(i==BASE)
+								/*if(i==BASE)
 								{
 									//if(pointCloud[BASE][index].normal.z>0)
 									rotate(-1*rotateR[1].y,basePointCloud[index],humanCenter[BASE]);
@@ -2056,7 +2082,7 @@ void SampleViewer::humanDisplay()
 									rotate(-1*rotateR[i].y,pointCloud[i][index],humanCenter[i]);
 										glVertex3f((pointCloud[i][index].x)/trueFactor+rightShift,(pointCloud[i][index].y)/trueFactor,(pointCloud[i][index].z)/trueFactor);
 								}
-								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);
+								//glVertex3f(realX/10.0-24+xShifter[i]-10,realY/10.0-32,pDepth[0]/zFactor);*/
 								/*if(denseMode)
 								{
 									glVertex3f(realX/10.0-24+xShifter[i]-10+basicDx,realY/10.0-32,pDepth[0]/zFactor);
