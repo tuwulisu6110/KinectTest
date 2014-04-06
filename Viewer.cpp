@@ -1333,7 +1333,7 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		break;
 	case 'w':
 		if(!selectingMode&&humanDisplayMode)
-			translateY[1]+=-10;
+			translateY[viewingID]+=-10;
 		else
 		{
 			nowY--;
